@@ -1,4 +1,4 @@
-// QRScanner - Terminal (style générateur)
+// QRScanner - Terminal (style générateur) avec gestion des dates et améliorations
 class QRScanner {
     // Pas de propriétés statiques ici
 }
@@ -16,6 +16,10 @@ QRScanner.scanCooldown = 1500;
 QRScanner.elementsReady = false;
 QRScanner.activeNotification = null;
 QRScanner.app = null; // référence vers QRGuardianTerminal
+QRScanner.flashOn = false;
+QRScanner.currentZoom = 1.0;
+QRScanner.zoomCapabilities = null;
+QRScanner.audioContext = null;
 
 // ===== INITIALISATION =====
 QRScanner.init = function(appReference) {
@@ -73,6 +77,22 @@ QRScanner.ensureElements = function() {
         scannerView.appendChild(frame);
     }
 
+    // Ajout des contrôles flash et zoom
+    if (!document.getElementById('scannerControls')) {
+        const controls = document.createElement('div');
+        controls.id = 'scannerControls';
+        controls.className = 'scanner-controls';
+        controls.innerHTML = `
+            <button id="flashBtn" class="btn-icon" title="Activer/désactiver flash" disabled><i class="fas fa-bolt"></i></button>
+            <div class="zoom-controls">
+                <button id="zoomOutBtn" class="btn-icon" title="Zoom arrière" disabled><i class="fas fa-search-minus"></i></button>
+                <span id="zoomLevel">1.0x</span>
+                <button id="zoomInBtn" class="btn-icon" title="Zoom avant" disabled><i class="fas fa-search-plus"></i></button>
+            </div>
+        `;
+        scannerView.appendChild(controls);
+    }
+
     if (!document.getElementById('stopScanBtn')) {
         const stopBtn = document.createElement('button');
         stopBtn.id = 'stopScanBtn';
@@ -110,6 +130,23 @@ QRScanner.ensureElements = function() {
         uploadBtn._listenerAttached = true;
     }
 
+    // Attacher les événements pour flash et zoom
+    const flashBtn = document.getElementById('flashBtn');
+    if (flashBtn && !flashBtn._listenerAttached) {
+        flashBtn.addEventListener('click', () => QRScanner.toggleFlash());
+        flashBtn._listenerAttached = true;
+    }
+    const zoomInBtn = document.getElementById('zoomInBtn');
+    if (zoomInBtn && !zoomInBtn._listenerAttached) {
+        zoomInBtn.addEventListener('click', () => QRScanner.zoomIn());
+        zoomInBtn._listenerAttached = true;
+    }
+    const zoomOutBtn = document.getElementById('zoomOutBtn');
+    if (zoomOutBtn && !zoomOutBtn._listenerAttached) {
+        zoomOutBtn.addEventListener('click', () => QRScanner.zoomOut());
+        zoomOutBtn._listenerAttached = true;
+    }
+
     QRScanner.elementsReady = true;
     return true;
 };
@@ -140,6 +177,9 @@ QRScanner.start = async function() {
     const scannerView = document.getElementById('scannerView');
     const startScanBtn = document.getElementById('startScanBtn');
     const stopScanBtn = document.getElementById('stopScanBtn');
+    const flashBtn = document.getElementById('flashBtn');
+    const zoomInBtn = document.getElementById('zoomInBtn');
+    const zoomOutBtn = document.getElementById('zoomOutBtn');
 
     if (scannerPlaceholder) scannerPlaceholder.style.display = 'none';
     if (scannerView) scannerView.style.display = 'block';
@@ -156,6 +196,23 @@ QRScanner.start = async function() {
         await QRScanner.videoElement.play();
         QRScanner.isScanning = true;
         QRScanner.isStarting = false;
+
+        // Activer les contrôles si supportés
+        const track = QRScanner.stream.getVideoTracks()[0];
+        const capabilities = track.getCapabilities && track.getCapabilities();
+        if (capabilities) {
+            if (capabilities.torch) {
+                if (flashBtn) flashBtn.disabled = false;
+            }
+            if (capabilities.zoom) {
+                QRScanner.zoomCapabilities = capabilities.zoom;
+                QRScanner.currentZoom = capabilities.zoom.min || 1.0;
+                if (zoomInBtn) zoomInBtn.disabled = false;
+                if (zoomOutBtn) zoomOutBtn.disabled = false;
+                QRScanner.updateZoomDisplay();
+            }
+        }
+
         QRScanner.startScanLoop();
     } catch (error) {
         console.error('❌ Erreur caméra:', error);
@@ -166,20 +223,35 @@ QRScanner.start = async function() {
 
 QRScanner.stop = function() {
     if (QRScanner.scanAnimation) cancelAnimationFrame(QRScanner.scanAnimation);
-    if (QRScanner.stream) QRScanner.stream.getTracks().forEach(t => t.stop());
+    if (QRScanner.stream) {
+        // Éteindre le flash si allumé
+        if (QRScanner.flashOn) QRScanner.toggleFlash(false);
+        QRScanner.stream.getTracks().forEach(t => t.stop());
+    }
     if (QRScanner.videoElement) QRScanner.videoElement.srcObject = null;
     QRScanner.isScanning = false;
     QRScanner.isStarting = false;
+    QRScanner.flashOn = false;
 
     const scannerView = document.getElementById('scannerView');
     const startScanBtn = document.getElementById('startScanBtn');
     const stopScanBtn = document.getElementById('stopScanBtn');
     const placeholder = document.getElementById('scannerPlaceholder');
+    const flashBtn = document.getElementById('flashBtn');
+    const zoomInBtn = document.getElementById('zoomInBtn');
+    const zoomOutBtn = document.getElementById('zoomOutBtn');
 
     if (scannerView) scannerView.style.display = 'none';
     if (startScanBtn) startScanBtn.style.display = 'block';
     if (stopScanBtn) stopScanBtn.style.display = 'none';
     if (placeholder) placeholder.style.display = 'block';
+    if (flashBtn) flashBtn.disabled = true;
+    if (zoomInBtn) zoomInBtn.disabled = true;
+    if (zoomOutBtn) zoomOutBtn.disabled = true;
+
+    // Réinitialiser l'affichage du zoom
+    const zoomLevel = document.getElementById('zoomLevel');
+    if (zoomLevel) zoomLevel.textContent = '1.0x';
 };
 
 QRScanner.startScanLoop = function() {
@@ -216,7 +288,6 @@ QRScanner.startScanLoop = function() {
 };
 
 // ========== FONCTIONS DE CHIFFREMENT/DÉCHIFFREMENT ==========
-// Doit correspondre à la méthode encryptCode du générateur
 QRScanner.decryptCode = function(encryptedBase64) {
     const key = "QRGuardianKey2025";
     try {
@@ -233,9 +304,97 @@ QRScanner.decryptCode = function(encryptedBase64) {
     }
 };
 
-// ========== TRAITEMENT DES CODES ==========
+// ===== RETOURS SENSORIELS =====
+QRScanner.playBeep = function() {
+    try {
+        if (!QRScanner.audioContext) {
+            QRScanner.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (QRScanner.audioContext.state === 'suspended') {
+            QRScanner.audioContext.resume();
+        }
+        const osc = QRScanner.audioContext.createOscillator();
+        const gain = QRScanner.audioContext.createGain();
+        osc.connect(gain);
+        gain.connect(QRScanner.audioContext.destination);
+        osc.frequency.value = 800;
+        gain.gain.value = 0.1;
+        osc.start();
+        osc.stop(QRScanner.audioContext.currentTime + 0.1);
+    } catch (e) {
+        console.warn('Beep non supporté', e);
+    }
+};
+
+QRScanner.vibrate = function() {
+    if (navigator.vibrate) {
+        navigator.vibrate(200);
+    }
+};
+
+// ===== GESTION FLASH =====
+QRScanner.toggleFlash = function(force) {
+    if (!QRScanner.stream) return;
+    const track = QRScanner.stream.getVideoTracks()[0];
+    if (!track) return;
+    const capabilities = track.getCapabilities && track.getCapabilities();
+    if (!capabilities || !capabilities.torch) return;
+
+    QRScanner.flashOn = force !== undefined ? force : !QRScanner.flashOn;
+    track.applyConstraints({
+        advanced: [{ torch: QRScanner.flashOn }]
+    }).catch(e => console.warn('Flash non supporté', e));
+
+    const flashBtn = document.getElementById('flashBtn');
+    if (flashBtn) {
+        flashBtn.classList.toggle('active', QRScanner.flashOn);
+    }
+};
+
+// ===== GESTION ZOOM =====
+QRScanner.zoomIn = function() {
+    QRScanner.adjustZoom(0.2);
+};
+
+QRScanner.zoomOut = function() {
+    QRScanner.adjustZoom(-0.2);
+};
+
+QRScanner.adjustZoom = function(delta) {
+    if (!QRScanner.stream || !QRScanner.zoomCapabilities) return;
+    const track = QRScanner.stream.getVideoTracks()[0];
+    if (!track) return;
+    const min = QRScanner.zoomCapabilities.min || 1.0;
+    const max = QRScanner.zoomCapabilities.max || 1.0;
+    let newZoom = QRScanner.currentZoom + delta;
+    newZoom = Math.max(min, Math.min(max, newZoom));
+    if (newZoom === QRScanner.currentZoom) return;
+    QRScanner.currentZoom = newZoom;
+    track.applyConstraints({
+        advanced: [{ zoom: QRScanner.currentZoom }]
+    }).catch(e => console.warn('Zoom non supporté', e));
+    QRScanner.updateZoomDisplay();
+};
+
+QRScanner.updateZoomDisplay = function() {
+    const zoomSpan = document.getElementById('zoomLevel');
+    if (zoomSpan) zoomSpan.textContent = QRScanner.currentZoom.toFixed(1) + 'x';
+};
+
+// ===== TRAITEMENT DES CODES =====
 QRScanner.processScannedCode = async function(data) {
     QRScanner.stop();
+
+    // Retour sensoriel immédiat
+    QRScanner.playBeep();
+    QRScanner.vibrate();
+
+    // Flash visuel (animation)
+    const frame = document.querySelector('.scan-frame');
+    if (frame) {
+        frame.classList.add('scan-flash');
+        setTimeout(() => frame.classList.remove('scan-flash'), 300);
+    }
 
     try {
         let parsed;
@@ -262,7 +421,6 @@ QRScanner.processScannedCode = async function(data) {
 // ----- QR de connexion -----
 QRScanner.handleConnectionQR = function(connectionData) {
     let code = connectionData.code;
-    // Si le QR est chiffré (champ encrypted présent et true), on déchiffre
     if (connectionData.encrypted) {
         const decrypted = QRScanner.decryptCode(code);
         if (!decrypted) {
@@ -316,11 +474,13 @@ QRScanner.handleConnectionQR = function(connectionData) {
     ignoreBtn.addEventListener('click', () => notif.remove());
 };
 
-// ----- QR normal -----
+// ----- QR normal avec gestion des dates -----
 QRScanner.processNormalQR = async function(data) {
     let qrData;
     let formatType = 'text';
-    let expiryTimestamp = null;
+    let startTimestamp = null;
+    let endTimestamp = null;
+    let qrType = 'standard'; // AJOUT : valeur par défaut
 
     if (data.startsWith('https://qrguardian.app/e?')) {
         try {
@@ -333,10 +493,14 @@ QRScanner.processNormalQR = async function(data) {
                 ts: params.get('ts'),
                 id: params.get('id') || '',
                 sc: params.get('sc') || '',
-                exp: params.get('exp') ? parseInt(params.get('exp'), 10) : null // <-- Ajout de la date d'expiration
+                start: params.get('start') ? parseInt(params.get('start'), 10) : null,
+                end: params.get('end') ? parseInt(params.get('end'), 10) : null,
+                s: params.get('s') || params.get('type') || 'standard' // AJOUT : récupération du type
             };
             formatType = 'url';
-            expiryTimestamp = qrData.exp;
+            startTimestamp = qrData.start;
+            endTimestamp = qrData.end;
+            qrType = qrData.s; // AJOUT
         } catch { 
             qrData = { n: 'QR Code', data }; 
         }
@@ -344,10 +508,9 @@ QRScanner.processNormalQR = async function(data) {
         try {
             qrData = JSON.parse(data);
             formatType = 'json';
-            // Si le JSON contient un champ "exp", le récupérer
-            if (qrData.exp && typeof qrData.exp === 'number') {
-                expiryTimestamp = qrData.exp;
-            }
+            startTimestamp = qrData.start ? parseInt(qrData.start, 10) : null;
+            endTimestamp = qrData.end ? parseInt(qrData.end, 10) : null;
+            qrType = qrData.s || qrData.type || 'standard'; // AJOUT
         } catch {
             qrData = { n: 'QR Code Texte', data };
             formatType = 'text';
@@ -366,29 +529,32 @@ QRScanner.processNormalQR = async function(data) {
     let isValid = false;
     let isDuplicate = false;
     let isExpired = false;
+    let isNotYetValid = false;
 
-    // Vérification de l'expiration
-    if (expiryTimestamp) {
+    // 1. Vérification du code secret
+    if (!expectedCode) {
+        securityCheck = { valid: false, message: 'Aucun code secret configuré' };
+        isValid = false;
+    } else if (!securityCode) {
+        securityCheck = { valid: false, message: 'QR code non sécurisé' };
+        isValid = false;
+    } else if (securityCode !== expectedCode) {
+        securityCheck = { valid: false, message: 'CODE SECRET INVALIDE - FRAUDE' };
+        isValid = false;
+    } else {
+        // Code secret OK, on vérifie la période de validité
         const now = Date.now();
-        if (now > expiryTimestamp) {
+
+        if (startTimestamp && now < startTimestamp) {
+            isNotYetValid = true;
+            securityCheck = { valid: false, message: 'QR code pas encore valide' };
+            isValid = false;
+        } else if (endTimestamp && now > endTimestamp) {
             isExpired = true;
             securityCheck = { valid: false, message: 'QR code expiré' };
             isValid = false;
-        }
-    }
-
-    // Si pas encore invalide à cause de l'expiration, on vérifie le code secret
-    if (!isExpired) {
-        if (!expectedCode) {
-            securityCheck = { valid: false, message: 'Aucun code secret configuré' };
-            isValid = false;
-        } else if (!securityCode) {
-            securityCheck = { valid: false, message: 'QR code non sécurisé' };
-            isValid = false;
-        } else if (securityCode !== expectedCode) {
-            securityCheck = { valid: false, message: 'CODE SECRET INVALIDE - FRAUDE' };
-            isValid = false;
         } else {
+            // Période OK, on vérifie les doublons
             if (eventId) {
                 const exists = await Database.checkIfEventIdExists(eventId);
                 if (exists) {
@@ -406,24 +572,28 @@ QRScanner.processNormalQR = async function(data) {
         }
     }
 
-    // Ajouter l'expiration au scanRecord pour l'affichage
     const scanRecord = {
         eventName, price, location,
         valid: isValid,
         securityCode, eventId,
         securityCheck,
         isDuplicate,
+        isExpired,
+        isNotYetValid,
         format: formatType,
         rawData: data.substring(0, 200),
-        expiry: expiryTimestamp // <-- stocker pour affichage
+        validityStart: startTimestamp,
+        validityEnd: endTimestamp,
+        timestamp: new Date().toISOString(),
+        qrType: qrType // AJOUT : inclure le type
     };
 
     await Database.saveScan(scanRecord);
-    QRScanner.displayScanResult(scanRecord, isValid, isDuplicate, isExpired);
+    QRScanner.displayScanResult(scanRecord, isValid, isDuplicate, isExpired, isNotYetValid);
 };
 
 // ===== AFFICHAGE DU RÉSULTAT =====
-QRScanner.displayScanResult = function(scanRecord, isValid, isDuplicate = false, isExpired = false) {
+QRScanner.displayScanResult = function(scanRecord, isValid, isDuplicate = false, isExpired = false, isNotYetValid = false) {
     const resultContainer = document.getElementById('scanResultContainer');
     const resultElement = document.getElementById('scanResult');
     if (!resultContainer || !resultElement) return;
@@ -431,7 +601,9 @@ QRScanner.displayScanResult = function(scanRecord, isValid, isDuplicate = false,
 
     let html = '';
     if (isDuplicate) html = QRScanner.createDuplicateResultHTML(scanRecord);
-    else if (!isValid) html = QRScanner.createInvalidResultHTML(scanRecord, isExpired);
+    else if (isExpired) html = QRScanner.createExpiredResultHTML(scanRecord);
+    else if (isNotYetValid) html = QRScanner.createNotYetValidResultHTML(scanRecord);
+    else if (!isValid) html = QRScanner.createInvalidResultHTML(scanRecord);
     else html = QRScanner.createValidResultHTML(scanRecord);
 
     resultElement.innerHTML = html;
@@ -447,7 +619,8 @@ QRScanner.displayScanResult = function(scanRecord, isValid, isDuplicate = false,
 };
 
 QRScanner.createValidResultHTML = function(scanRecord) {
-    const expiryDate = scanRecord.expiry ? new Date(scanRecord.expiry).toLocaleString() : null;
+    const startDate = scanRecord.validityStart ? new Date(scanRecord.validityStart).toLocaleString() : null;
+    const endDate = scanRecord.validityEnd ? new Date(scanRecord.validityEnd).toLocaleString() : null;
     return `
         <div class="scan-result-card">
             <div class="scan-result-header valid">
@@ -462,7 +635,8 @@ QRScanner.createValidResultHTML = function(scanRecord) {
             <div class="result-field"><label><i class="fas fa-tag"></i> Prix</label><span>${scanRecord.price || 'Gratuit'}</span></div>
             <div class="result-field"><label><i class="fas fa-map-marker"></i> Lieu</label><span>${scanRecord.location || '—'}</span></div>
             <div class="result-field"><label><i class="fas fa-id-card"></i> ID</label><span style="font-family:monospace;">${scanRecord.eventId || '—'}</span></div>
-            ${expiryDate ? `<div class="result-field"><label><i class="fas fa-hourglass-end"></i> Expire le</label><span>${expiryDate}</span></div>` : ''}
+            ${startDate ? `<div class="result-field"><label><i class="fas fa-hourglass-start"></i> Début</label><span>${startDate}</span></div>` : ''}
+            ${endDate ? `<div class="result-field"><label><i class="fas fa-hourglass-end"></i> Fin</label><span>${endDate}</span></div>` : ''}
             <div class="result-field"><label><i class="fas fa-clock"></i> Scanné le</label><span>${new Date(scanRecord.timestamp).toLocaleString()}</span></div>
             <div style="margin-top:1.5rem; text-align:center;">
                 <button id="scanAgainBtn" class="btn btn-primary"><i class="fas fa-camera"></i> Scanner un autre</button>
@@ -471,34 +645,60 @@ QRScanner.createValidResultHTML = function(scanRecord) {
     `;
 };
 
-QRScanner.createInvalidResultHTML = function(scanRecord, isExpired = false) {
-    let title, iconClass, color, message;
-    if (isExpired) {
-        title = 'QR CODE EXPIRÉ';
-        iconClass = 'fa-hourglass-end';
-        color = '#f59e0b';
-        message = 'Ce QR code a dépassé sa date de validité.';
-    } else {
-        title = 'QR CODE INVALIDE';
-        iconClass = 'fa-times-circle';
-        color = '#ef4444';
-        message = scanRecord.securityCheck?.message || 'Fraude détectée';
-    }
-
+QRScanner.createInvalidResultHTML = function(scanRecord) {
     return `
         <div class="scan-result-card">
             <div class="scan-result-header invalid">
-                <i class="fas ${iconClass}"></i>
-                <h3>${title}</h3>
+                <i class="fas fa-times-circle"></i>
+                <h3>QR CODE INVALIDE</h3>
             </div>
-            <div style="background:rgba(${isExpired ? '245,158,11' : '239,68,68'},0.1); border:1px solid rgba(${isExpired ? '245,158,11' : '239,68,68'},0.3); border-radius:var(--radius-md); padding:1rem; margin-bottom:1.5rem; text-align:center;">
-                <i class="fas ${iconClass}" style="color:${color}; font-size:2rem; margin-bottom:0.5rem;"></i>
-                <h4 style="color:${color};">${message}</h4>
+            <div style="background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.3); border-radius:var(--radius-md); padding:1rem; margin-bottom:1.5rem; text-align:center;">
+                <i class="fas fa-times-circle" style="color:#ef4444; font-size:2rem; margin-bottom:0.5rem;"></i>
+                <h4 style="color:#ef4444;">${scanRecord.securityCheck?.message || 'Fraude détectée'}</h4>
             </div>
             <div class="result-field"><label><i class="fas fa-calendar"></i> Événement</label><span>${scanRecord.eventName || '—'}</span></div>
             ${scanRecord.location ? `<div class="result-field"><label><i class="fas fa-map-marker"></i> Lieu</label><span>${scanRecord.location}</span></div>` : ''}
             <div class="result-field"><label><i class="fas fa-shield-alt"></i> Code reçu</label><span style="font-family:monospace;">${scanRecord.securityCode || 'Aucun'}</span></div>
-            ${scanRecord.expiry ? `<div class="result-field"><label><i class="fas fa-hourglass-end"></i> Expire le</label><span>${new Date(scanRecord.expiry).toLocaleString()}</span></div>` : ''}
+            <div style="margin-top:1.5rem; text-align:center;">
+                <button id="scanAgainBtn" class="btn btn-primary"><i class="fas fa-camera"></i> Scanner un autre</button>
+            </div>
+        </div>
+    `;
+};
+
+QRScanner.createExpiredResultHTML = function(scanRecord) {
+    return `
+        <div class="scan-result-card">
+            <div class="scan-result-header invalid">
+                <i class="fas fa-hourglass-end"></i>
+                <h3>QR CODE EXPIRÉ</h3>
+            </div>
+            <div style="background:rgba(245,158,11,0.1); border:1px solid rgba(245,158,11,0.3); border-radius:var(--radius-md); padding:1rem; margin-bottom:1.5rem; text-align:center;">
+                <i class="fas fa-hourglass-end" style="color:#f59e0b; font-size:2rem; margin-bottom:0.5rem;"></i>
+                <h4 style="color:#f59e0b;">Ce QR code a dépassé sa date de validité</h4>
+            </div>
+            <div class="result-field"><label><i class="fas fa-calendar"></i> Événement</label><span>${scanRecord.eventName || '—'}</span></div>
+            ${scanRecord.validityEnd ? `<div class="result-field"><label><i class="fas fa-hourglass-end"></i> Expirait le</label><span>${new Date(scanRecord.validityEnd).toLocaleString()}</span></div>` : ''}
+            <div style="margin-top:1.5rem; text-align:center;">
+                <button id="scanAgainBtn" class="btn btn-primary"><i class="fas fa-camera"></i> Scanner un autre</button>
+            </div>
+        </div>
+    `;
+};
+
+QRScanner.createNotYetValidResultHTML = function(scanRecord) {
+    return `
+        <div class="scan-result-card">
+            <div class="scan-result-header invalid">
+                <i class="fas fa-hourglass-start"></i>
+                <h3>QR CODE PAS ENCORE VALIDE</h3>
+            </div>
+            <div style="background:rgba(59,130,246,0.1); border:1px solid rgba(59,130,246,0.3); border-radius:var(--radius-md); padding:1rem; margin-bottom:1.5rem; text-align:center;">
+                <i class="fas fa-hourglass-start" style="color:#3b82f6; font-size:2rem; margin-bottom:0.5rem;"></i>
+                <h4 style="color:#3b82f6;">Ce QR code n'est pas encore valide</h4>
+            </div>
+            <div class="result-field"><label><i class="fas fa-calendar"></i> Événement</label><span>${scanRecord.eventName || '—'}</span></div>
+            ${scanRecord.validityStart ? `<div class="result-field"><label><i class="fas fa-hourglass-start"></i> Devient valide le</label><span>${new Date(scanRecord.validityStart).toLocaleString()}</span></div>` : ''}
             <div style="margin-top:1.5rem; text-align:center;">
                 <button id="scanAgainBtn" class="btn btn-primary"><i class="fas fa-camera"></i> Scanner un autre</button>
             </div>
@@ -518,7 +718,7 @@ QRScanner.createDuplicateResultHTML = function(scanRecord) {
                 <h4 style="color:#f59e0b;">Ce QR code a déjà été scanné</h4>
             </div>
             <div class="result-field"><label><i class="fas fa-calendar"></i> Événement</label><span>${scanRecord.eventName || '—'}</span></div>
-            ${scanRecord.expiry ? `<div class="result-field"><label><i class="fas fa-hourglass-end"></i> Expire le</label><span>${new Date(scanRecord.expiry).toLocaleString()}</span></div>` : ''}
+            ${scanRecord.validityEnd ? `<div class="result-field"><label><i class="fas fa-hourglass-end"></i> Expire le</label><span>${new Date(scanRecord.validityEnd).toLocaleString()}</span></div>` : ''}
             <div style="margin-top:1.5rem; text-align:center;">
                 <button id="scanAgainBtn" class="btn btn-primary"><i class="fas fa-camera"></i> Scanner un autre</button>
             </div>
