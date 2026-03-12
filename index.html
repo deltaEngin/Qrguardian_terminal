@@ -9,10 +9,12 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="QRGuardian">
     <link rel="apple-touch-icon" href="./icons/icon-192x192.png">
+    <!-- Polices Google : Poppins pour le système, Montserrat pour le ticket -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <!-- Manifeste PWA -->
     <link rel="manifest" href="./manifest.json">
     <title>QRGuardian - Terminal de contrôle</title>
-    <link rel="stylesheet" href="./css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
         /* ===== VARIABLES ET RESET ===== */
         :root {
@@ -44,7 +46,9 @@
             --radius-lg: 16px;
             --radius-xl: 24px;
             --radius-full: 9999px;
-            --transition-normal: 300ms ease;
+            --transition-normal: 0s; /* Désactive toutes les transitions */
+            --glass-bg: rgba(30, 41, 59, 0.7);
+            --glass-border: rgba(255, 255, 255, 0.1);
         }
 
         /* ===== THÈME CLAIR – FOND BLANC, TEXTES BLEU NUIT, ACCENTS BLEUS ===== */
@@ -72,6 +76,8 @@
             --shadow-sm: 0 2px 4px rgba(0,0,0,0.05);
             --shadow-md: 0 4px 6px rgba(0,0,0,0.07);
             --shadow-lg: 0 10px 25px rgba(0,0,0,0.1);
+            --glass-bg: rgba(255, 255, 255, 0.7);
+            --glass-border: rgba(0, 0, 0, 0.1);
         }
 
         /* --- Surcharges spécifiques au thème clair --- */
@@ -101,7 +107,8 @@
             color: white;
         }
         .light-theme .theme-toggle, 
-        .light-theme .refresh-btn {
+        .light-theme .refresh-btn,
+        .light-theme .connection-indicator {
             background: white;
             border: 1px solid #cbd5e1;
             color: #334155;
@@ -111,6 +118,12 @@
         }
         .light-theme .theme-toggle i.fa-moon {
             color: #475569;
+        }
+        .light-theme .connection-indicator i.fa-wifi {
+            color: #10b981;
+        }
+        .light-theme .connection-indicator i.fa-exclamation-triangle {
+            color: #ef4444;
         }
         .light-theme .logo-icon {
             color: #2563eb;
@@ -194,8 +207,21 @@
             background: #f1f5f9;
             color: #334155;
         }
+        .light-theme .btn-icon {
+            background: white;
+            border: 1px solid #cbd5e1;
+            color: #1e293b;
+        }
+        .light-theme .btn-icon:hover {
+            background: #2563eb;
+            color: white;
+        }
+        .light-theme .zoom-controls {
+            background: white;
+            border: 1px solid #cbd5e1;
+        }
 
-        /* ===== STYLES GÉNÉRAUX (inchangés) ===== */
+        /* ===== STYLES GÉNÉRAUX ===== */
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
@@ -258,6 +284,27 @@
             gap: 1rem;
             align-items: center;
         }
+        .connection-indicator {
+            background: var(--color-surface);
+            color: var(--color-text);
+            border: 1px solid var(--color-border);
+            width: 2.5rem;
+            height: 2.5rem;
+            border-radius: var(--radius-full);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: default;
+        }
+        .connection-indicator i {
+            font-size: 1.2rem;
+        }
+        .connection-indicator.online i {
+            color: var(--color-success);
+        }
+        .connection-indicator.offline i {
+            color: var(--color-danger);
+        }
         .btn {
             padding: 0.75rem 1.5rem;
             border: none;
@@ -269,11 +316,9 @@
             align-items: center;
             justify-content: center;
             gap: 0.5rem;
-            transition: all var(--transition-normal);
             text-decoration: none;
         }
         .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-        .btn:not(:disabled):hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
         .btn-primary {
             background: var(--gradient-primary);
             color: white;
@@ -301,6 +346,22 @@
             border-radius: var(--radius-full);
             width: 2.5rem;
             height: 2.5rem;
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
+            color: var(--color-text);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+        .btn-icon:hover {
+            background: var(--color-primary-light);
+            color: white;
+        }
+        .btn-icon.active {
+            background: var(--color-primary);
+            color: white;
         }
         .theme-toggle, .refresh-btn {
             background: var(--color-surface);
@@ -313,11 +374,9 @@
             align-items: center;
             justify-content: center;
             cursor: pointer;
-            transition: all var(--transition-normal);
         }
         .theme-toggle:hover, .refresh-btn:hover {
             background: var(--color-secondary);
-            transform: rotate(15deg);
             border-color: var(--color-primary-light);
         }
         .main-content {
@@ -328,12 +387,8 @@
             width: 100%;
             overflow-y: auto;
         }
-        .page { display: none; animation: pageFadeIn 0.4s ease-out; }
+        .page { display: none; }
         .page.active { display: block; }
-        @keyframes pageFadeIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
         .page-header { margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 1px solid var(--color-border); }
         .page-title {
             font-size: 1.75rem;
@@ -346,13 +401,13 @@
         }
         .page-subtitle { color: var(--color-text-secondary); font-size: 0.875rem; }
 
-        /* ===== SCANNER ===== */
+        /* ===== SCANNER AMÉLIORÉ ===== */
         .scanner-container {
             background: #000;
             border-radius: var(--radius-xl);
             overflow: hidden;
             position: relative;
-            height: 400px;
+            height: 450px; /* légèrement plus grand */
             margin-bottom: 1.5rem;
             border: 1px solid var(--color-border);
             box-shadow: var(--shadow-lg);
@@ -365,6 +420,8 @@
             height: 100%;
             padding: 2rem;
             text-align: center;
+            background: linear-gradient(135deg, rgba(0,0,0,0.8) 0%, rgba(15,23,42,0.9) 100%);
+            backdrop-filter: blur(5px);
         }
         .scanner-placeholder i {
             font-size: 4rem;
@@ -396,6 +453,10 @@
             pointer-events: none;
             box-shadow: inset 0 0 0 1px rgba(255,255,255,0.2);
         }
+        .scan-frame.scan-flash {
+            border-color: white;
+            box-shadow: 0 0 20px rgba(255,255,255,0.8);
+        }
         .scan-frame .corner {
             position: absolute;
             width: 20px;
@@ -408,13 +469,58 @@
         .scan-frame .corner.bl { bottom: -3px; left: -3px; border-width: 0 0 3px 3px; }
         .scan-frame .corner.br { bottom: -3px; right: -3px; border-width: 0 3px 3px 0; }
 
+        /* Contrôles du scanner */
+        .scanner-controls {
+            position: absolute;
+            bottom: 20px;
+            left: 0;
+            right: 0;
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            z-index: 10;
+            pointer-events: none;
+        }
+        .scanner-controls .btn-icon {
+            pointer-events: auto;
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
+            color: white;
+            width: 3rem;
+            height: 3rem;
+            font-size: 1.2rem;
+        }
+        .scanner-controls .btn-icon:disabled {
+            opacity: 0.3;
+            pointer-events: none;
+        }
+        .zoom-controls {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            border-radius: var(--radius-full);
+            padding: 0.25rem;
+            border: 1px solid var(--glass-border);
+            pointer-events: auto;
+        }
+        .zoom-controls span {
+            min-width: 3rem;
+            text-align: center;
+            font-weight: 600;
+            color: white;
+        }
+
         /* ===== RÉSULTATS SCAN ===== */
         #scanResultContainer { margin-top: 1.5rem; display: none; }
         .scan-result-card {
-            background: var(--color-surface);
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
             border-radius: var(--radius-xl);
             padding: 2rem;
-            border: 1px solid var(--color-border);
+            border: 1px solid var(--glass-border);
             box-shadow: var(--shadow-lg);
         }
         .scan-result-header {
@@ -462,7 +568,6 @@
             box-shadow: var(--shadow-xl);
             z-index: 1000;
             transform: translateX(400px);
-            transition: transform var(--transition-normal);
             border: 1px solid var(--color-border);
         }
         .notification.show { transform: translateX(0); }
@@ -485,6 +590,23 @@
             font-weight: 600;
         }
         .notification .btn-sm { margin-top: 0.5rem; }
+
+        /* ===== STYLES POUR LES CONFIRMATIONS STYLISÉES ===== */
+        .notification.confirm {
+            max-width: 400px;
+            background: var(--color-surface);
+            border-left: 4px solid var(--color-warning);
+        }
+        .notification .confirm-actions {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 1rem;
+            justify-content: flex-end;
+        }
+        .notification .confirm-actions button {
+            padding: 0.5rem 1rem;
+            font-size: 0.875rem;
+        }
 
         /* ===== HISTORIQUE ===== */
         .history-controls {
@@ -511,7 +633,6 @@
             font-size: 0.75rem;
             font-weight: 600;
             cursor: pointer;
-            transition: all var(--transition-normal);
         }
         .filter-tab:hover { background: var(--color-secondary-light); }
         .filter-tab.active { background: var(--gradient-primary); border-color: var(--color-primary-light); }
@@ -531,9 +652,8 @@
             border-radius: var(--radius-lg);
             padding: 1.25rem;
             border: 1px solid var(--color-border);
-            transition: all var(--transition-normal);
         }
-        .history-item:hover { transform: translateY(-2px); border-color: var(--color-primary-light); }
+        .history-item:hover { border-color: var(--color-primary-light); }
         .history-item.valid { border-left: 4px solid var(--color-success); }
         .history-item.invalid { border-left: 4px solid var(--color-danger); }
         .history-item.duplicate { border-left: 4px solid var(--color-warning); }
@@ -568,6 +688,20 @@
             border-radius: var(--radius-full);
             font-size: 0.75rem;
         }
+        .expired-badge, .future-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            background: rgba(245,158,11,0.1);
+            color: var(--color-warning);
+            padding: 0.25rem 0.5rem;
+            border-radius: var(--radius-full);
+            font-size: 0.75rem;
+        }
+        .future-badge {
+            background: rgba(59,130,246,0.1);
+            color: var(--color-info);
+        }
         .empty-history {
             text-align: center;
             padding: 3rem 1rem;
@@ -587,9 +721,8 @@
             padding: 1.5rem;
             border: 1px solid var(--color-border);
             text-align: center;
-            transition: all var(--transition-normal);
         }
-        .stat-card:hover { transform: translateY(-2px); border-color: var(--color-primary-light); }
+        .stat-card:hover { border-color: var(--color-primary-light); }
         .stat-card i { font-size: 2rem; color: var(--color-primary-light); margin-bottom: 0.5rem; }
         .stat-value {
             font-size: 2.5rem;
@@ -615,7 +748,6 @@
             padding: 1.5rem;
             border: 1px solid var(--color-border);
             box-shadow: var(--shadow-sm);
-            transition: all var(--transition-normal);
         }
         .settings-card:hover { border-color: var(--color-primary-light); }
         /* Carte plus large sur desktop */
@@ -683,7 +815,6 @@
             height: 100%;
             background: var(--gradient-primary);
             border-radius: 4px;
-            transition: width var(--transition-normal);
             width: 0%;
         }
         .storage-details {
@@ -737,11 +868,8 @@
             border: 2px solid rgba(255,255,255,0.3);
             border-radius: 50%;
             border-top-color: #fff;
-            animation: spin 1s ease-in-out infinite;
         }
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
+        /* Suppression de l'animation spin */
 
         /* ===== NAVIGATION BAS ===== */
         .bottom-nav {
@@ -765,7 +893,6 @@
             padding: 0.75rem 0.5rem;
             color: var(--color-text-secondary);
             cursor: pointer;
-            transition: all var(--transition-normal);
             border-radius: var(--radius-md);
             position: relative;
         }
@@ -805,6 +932,7 @@
     </style>
 </head>
 <body class="dark-theme">
+    <!-- Contenu identique, inchangé -->
     <div class="app-container">
         <header class="app-header">
             <div class="header-content">
@@ -816,6 +944,10 @@
                     </div>
                 </div>
                 <div class="header-actions">
+                    <!-- Indicateur de connexion -->
+                    <div class="connection-indicator" id="connectionIndicator" title="Connexion">
+                        <i class="fas fa-wifi"></i>
+                    </div>
                     <button id="refreshBtn" class="refresh-btn" aria-label="Rafraîchir">
                         <i class="fas fa-sync-alt"></i>
                     </button>
@@ -845,6 +977,7 @@
                     </div>
                     <div class="scanner-view" id="scannerView">
                         <!-- Vidéo insérée par JS -->
+                        <!-- Les contrôles flash/zoom seront ajoutés par scanner.js -->
                     </div>
                 </div>
                 <div id="scanResultContainer">
@@ -872,6 +1005,7 @@
                         <button class="filter-tab" data-filter="valid"><i class="fas fa-check-circle"></i> Valides</button>
                         <button class="filter-tab" data-filter="invalid"><i class="fas fa-times-circle"></i> Invalides</button>
                         <button class="filter-tab" data-filter="duplicate"><i class="fas fa-copy"></i> Doublons</button>
+                        <button class="filter-tab" data-filter="connection"><i class="fas fa-link"></i> Connexions</button>
                     </div>
                     <!-- Bouton Vider supprimé -->
                 </div>
@@ -884,7 +1018,7 @@
                 </div>
             </section>
 
-            <!-- PAGE STATISTIQUES (sans graphique) -->
+            <!-- PAGE STATISTIQUES (sans graphique, mais avec place pour chart si désiré) -->
             <section class="page" id="statsPage">
                 <div class="page-header">
                     <h2 class="page-title"><i class="fas fa-chart-bar"></i> Statistiques</h2>
@@ -912,7 +1046,8 @@
                         <div class="stat-label">Total scans</div>
                     </div>
                 </div>
-                <!-- Le graphique a été retiré -->
+                <!-- Zone pour un graphique éventuel (peut être ajouté plus tard) -->
+                <canvas id="statsChart" style="max-height:300px; margin-top:2rem; display:none;"></canvas>
             </section>
 
             <!-- PAGE PARAMÈTRES -->
@@ -943,7 +1078,8 @@
                                 ---
                             </div>
                             <div style="display:flex; gap:0.5rem;">
-                               
+                                <button class="btn btn-secondary" id="deleteCodeBtn" style="flex:1;" disabled><i class="fas fa-trash"></i> Supprimer</button>
+                                <button class="btn btn-primary" id="copyCodeBtn" style="flex:1;" disabled><i class="fas fa-copy"></i> Copier</button>
                             </div>
                         </div>
                     </div>
@@ -968,9 +1104,14 @@
                                     <span>sur 5 MB</span>
                                 </div>
                             </div>
-                            <button class="btn btn-danger" id="clearStorageBtn" style="width:100%;">
-                                <i class="fas fa-trash"></i> Nettoyer tout
-                            </button>
+                            <div style="display:flex; gap:0.5rem; margin-top:1rem;">
+                                <button class="btn btn-danger" id="clearStorageBtn" style="flex:1;">
+                                    <i class="fas fa-trash"></i> Nettoyer tout
+                                </button>
+                                <button class="btn btn-success" id="syncToSupabaseBtn" style="flex:1;">
+                                    <i class="fas fa-cloud-upload-alt"></i> Synchroniser
+                                </button>
+                            </div>
                             <!-- Bloc de confirmation admin -->
                             <div id="adminPasswordContainer" class="admin-password-container">
                                 <input type="password" id="adminPasswordInput" class="password-input" placeholder="Mot de passe administrateur">
@@ -985,7 +1126,35 @@
                             </div>
                         </div>
                     </div>
-                    <!-- Export des données (nouvelle carte) -->
+                    <!-- ===== NOUVELLE CARTE : MOT DE PASSE ADMINISTRATEUR ===== -->
+                    <div class="settings-card">
+                        <div class="settings-card-header">
+                            <i class="fas fa-lock"></i>
+                            <h3>Mot de passe administrateur</h3>
+                        </div>
+                        <div class="settings-card-body">
+                            <p style="font-size:0.75rem; color:var(--color-text-secondary); margin-bottom:1rem;">
+                                Modifiez le mot de passe requis pour vider la base de données.
+                            </p>
+                            <div style="margin-bottom:1rem;">
+                                <label style="display:block; margin-bottom:0.5rem; font-size:0.875rem;">Ancien mot de passe</label>
+                                <input type="password" id="oldPasswordInput" class="password-input" placeholder="Ancien mot de passe">
+                            </div>
+                            <div style="margin-bottom:1rem;">
+                                <label style="display:block; margin-bottom:0.5rem; font-size:0.875rem;">Nouveau mot de passe</label>
+                                <input type="password" id="newPasswordInput" class="password-input" placeholder="Nouveau mot de passe">
+                            </div>
+                            <div style="margin-bottom:1rem;">
+                                <label style="display:block; margin-bottom:0.5rem; font-size:0.875rem;">Confirmer le nouveau mot de passe</label>
+                                <input type="password" id="confirmPasswordInput" class="password-input" placeholder="Confirmation">
+                            </div>
+                            <div id="passwordChangeError" class="error-message" style="margin-bottom:1rem;"></div>
+                            <button class="btn btn-primary" id="changePasswordBtn" style="width:100%;">
+                                <i class="fas fa-save"></i> Changer le mot de passe
+                            </button>
+                        </div>
+                    </div>
+                    <!-- Export des données -->
                     <div class="settings-card">
                         <div class="settings-card-header">
                             <i class="fas fa-download"></i>
@@ -1055,6 +1224,8 @@
     <script src="./js/database.js"></script>
     <script src="./js/scanner.js"></script>
     <script src="./js/app.js"></script>
+    <!-- Scripts supabase -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
