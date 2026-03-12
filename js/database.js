@@ -161,6 +161,15 @@ class Database {
         }
     }
 
+    static async deleteSecurityCode() {
+        localStorage.removeItem('qrguardian_security_code');
+        try {
+            await this.saveSetting('securityCode', null);
+        } catch (e) {
+            console.warn('⚠️ Suppression DB du code secret échouée');
+        }
+    }
+
     // ===== CLÉS =====
     static async saveKeys(keys) {
         const db = await this._ensureDB();
@@ -214,7 +223,7 @@ class Database {
             const scanRecord = {
                 ...scanData,
                 isConnection: isConnectionScan,
-                timestamp: new Date().toISOString()
+                timestamp: scanData.timestamp || new Date().toISOString()
             };
 
             if (scanRecord.valid && scanRecord.eventId && !scanRecord.isDuplicate) {
@@ -230,7 +239,8 @@ class Database {
             const tx = db.transaction(this.STORES.HISTORY, 'readwrite');
             const store = tx.objectStore(this.STORES.HISTORY);
 
-            return new Promise((resolve, reject) => {
+            // Sauvegarde locale
+            const savePromise = new Promise((resolve, reject) => {
                 const request = store.add(scanRecord);
                 request.onsuccess = (e) => {
                     resolve({ id: e.target.result, isDuplicate: scanRecord.isDuplicate });
@@ -240,6 +250,40 @@ class Database {
                     reject(e.target.error);
                 };
             });
+
+            // ---- ENVOI À SUPABASE (asynchrone, ne bloque pas) ----
+            (async () => {
+                try {
+                    // Ces variables sont définies dans app.js (globales)
+                    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                    const record = {
+                        event_name: scanRecord.eventName,
+                        price: scanRecord.price,
+                        location: scanRecord.location,
+                        valid: scanRecord.valid,
+                        security_code: scanRecord.securityCode,
+                        event_id: scanRecord.eventId,
+                        security_check: scanRecord.securityCheck,
+                        is_duplicate: scanRecord.isDuplicate || false,
+                        is_expired: scanRecord.isExpired || false,
+                        is_not_yet_valid: scanRecord.isNotYetValid || false,
+                        format: scanRecord.format,
+                        raw_data: scanRecord.rawData,
+                        validity_start: scanRecord.validityStart,
+                        validity_end: scanRecord.validityEnd,
+                        timestamp: scanRecord.timestamp,
+                        is_connection: scanRecord.isConnection || false,
+                        qr_type: scanRecord.qrType || 'standard' // AJOUT
+                    };
+                    const { error } = await supabase.from('scans').insert([record]);
+                    if (error) console.warn('Supabase insert error:', error);
+                } catch (e) {
+                    console.warn('Erreur envoi à Supabase', e);
+                }
+            })();
+            // -------------------------------------------------------
+
+            return savePromise;
         } catch (error) {
             console.error('❌ Erreur saveScan:', error);
             throw error;
