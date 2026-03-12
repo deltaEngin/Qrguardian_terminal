@@ -1,4 +1,10 @@
 // QRGuardian Terminal - Application principale
+
+// === AJOUT SUPABASE ===
+const SUPABASE_URL = 'https://pfdhfkbuhaecaakvyagp.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBmZGhma2J1aGFlY2Fha3Z5YWdwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyNDM0NzksImV4cCI6MjA4ODgxOTQ3OX0.bMZ9Y61ZWnMCXQEXYtAoYOP2sJKxpBE2L59T2nCU4EY';
+// =====================
+
 class QRGuardianTerminal {
     constructor() {
         this.currentPage = 'scanPage';
@@ -22,14 +28,23 @@ class QRGuardianTerminal {
             this.setupNavigation();
             this.setupTheme();
             this.setupRefreshButton();
-            this.setupScanner();
+            this.setupScanner(); // Nouvelle méthode
             this.setupHistory();
             this.setupStats();
             this.setupSettings();
+            // Ajout : gestion de la connexion
+            this.setupConnectionIndicator();
             this.showNotification('QRGuardian Terminal prêt', 'Scannez un QR code pour commencer', 'info');
         } catch (error) {
             console.error('❌ Erreur initialisation:', error);
             this.showNotification('Erreur', 'Veuillez rafraîchir la page', 'error');
+        }
+    }
+
+    // Nouvelle méthode pour configurer le scanner
+    setupScanner() {
+        if (typeof QRScanner !== 'undefined') {
+            QRScanner.init(this);
         }
     }
 
@@ -39,7 +54,7 @@ class QRGuardianTerminal {
             const existing = await Database.getSetting(this.ADMIN_PASSWORD_KEY);
             if (!existing) {
                 // Mot de passe par défaut
-                await Database.saveSetting(this.ADMIN_PASSWORD_KEY, 'Mrichesse_2025');
+                await Database.saveSetting(this.ADMIN_PASSWORD_KEY, 'Admin2026');
                 console.log('✅ Mot de passe administrateur initialisé');
             }
         } catch (error) {
@@ -85,7 +100,13 @@ class QRGuardianTerminal {
     }
 
     async deleteSecurityCode() {
-        if (confirm('Êtes-vous sûr de vouloir supprimer le code secret ?\nLes futurs scans échoueront jusqu\'à une nouvelle synchronisation.')) {
+        const confirmed = await this.showConfirmDialog(
+            'Supprimer le code secret',
+            'Êtes-vous sûr de vouloir supprimer le code secret ?\nLes futurs scans échoueront jusqu\'à une nouvelle synchronisation.',
+            'Supprimer',
+            'Annuler'
+        );
+        if (confirmed) {
             await Database.deleteSecurityCode();
             this.UNIQUE_SECURITY_CODE = null;
             this.updateSecurityCodeUI();
@@ -209,11 +230,7 @@ class QRGuardianTerminal {
     }
 
     // ===== SCANNER =====
-    setupScanner() {
-        if (typeof QRScanner !== 'undefined') {
-            QRScanner.init(this);
-        }
-    }
+    // La méthode setupScanner est déjà définie plus haut
 
     // ===== HISTORIQUE =====
     setupHistory() {
@@ -243,7 +260,10 @@ class QRGuardianTerminal {
                 return;
             }
 
-            list.innerHTML = history.map(scan => `
+            list.innerHTML = history.map(scan => {
+                const start = scan.validityStart ? new Date(scan.validityStart).toLocaleDateString() : null;
+                const end = scan.validityEnd ? new Date(scan.validityEnd).toLocaleDateString() : null;
+                return `
                 <div class="history-item ${scan.valid ? 'valid' : 'invalid'} ${scan.isDuplicate ? 'duplicate' : ''}">
                     <div class="history-item-header">
                         <i class="fas fa-${scan.isDuplicate ? 'exclamation-triangle' : scan.valid ? 'check-circle' : 'times-circle'}"></i>
@@ -253,11 +273,15 @@ class QRGuardianTerminal {
                     <div class="history-item-details">
                         ${scan.location ? `<p><i class="fas fa-map-marker-alt"></i> ${scan.location}</p>` : ''}
                         ${scan.price ? `<p><i class="fas fa-tag"></i> ${scan.price}</p>` : ''}
+                        ${start ? `<p><i class="fas fa-hourglass-start"></i> Début: ${start}</p>` : ''}
+                        ${end ? `<p><i class="fas fa-hourglass-end"></i> Fin: ${end}</p>` : ''}
                         <p><i class="fas fa-clock"></i> ${new Date(scan.timestamp).toLocaleTimeString()}</p>
                         ${scan.isDuplicate ? '<span class="duplicate-badge"><i class="fas fa-exclamation-circle"></i> Doublon</span>' : ''}
+                        ${scan.isExpired ? '<span class="expired-badge"><i class="fas fa-hourglass-end"></i> Expiré</span>' : ''}
+                        ${scan.isNotYetValid ? '<span class="future-badge"><i class="fas fa-hourglass-start"></i> Futur</span>' : ''}
                     </div>
                 </div>
-            `).join('');
+            `}).join('');
         } catch (error) {
             console.error('Erreur chargement historique:', error);
         }
@@ -275,8 +299,10 @@ class QRGuardianTerminal {
         try {
             const history = await Database.getScanHistory('all', 0);
             const valid = history.filter(s => s.valid && !s.isDuplicate).length;
-            const invalid = history.filter(s => !s.valid && !s.isDuplicate).length;
+            const invalid = history.filter(s => !s.valid && !s.isDuplicate && !s.isExpired && !s.isNotYetValid).length;
             const duplicate = history.filter(s => s.isDuplicate).length;
+            const expired = history.filter(s => s.isExpired).length;
+            const future = history.filter(s => s.isNotYetValid).length;
             const total = history.length;
 
             document.getElementById('statValid').textContent = valid;
@@ -284,16 +310,17 @@ class QRGuardianTerminal {
             document.getElementById('statDuplicate').textContent = duplicate;
             document.getElementById('statTotal').textContent = total;
 
+            // Mise à jour optionnelle du graphique si présent
             if (typeof Chart !== 'undefined' && document.getElementById('statsChart')) {
                 const ctx = document.getElementById('statsChart').getContext('2d');
                 if (this.statsChart) this.statsChart.destroy();
                 this.statsChart = new Chart(ctx, {
                     type: 'doughnut',
                     data: {
-                        labels: ['Valides', 'Invalides', 'Doublons'],
+                        labels: ['Valides', 'Invalides', 'Doublons', 'Expirés', 'Futurs'],
                         datasets: [{
-                            data: [valid, invalid, duplicate],
-                            backgroundColor: ['#10b981', '#ef4444', '#f59e0b'],
+                            data: [valid, invalid, duplicate, expired, future],
+                            backgroundColor: ['#10b981', '#ef4444', '#f59e0b', '#f97316', '#3b82f6'],
                             borderWidth: 0
                         }]
                     },
@@ -325,11 +352,15 @@ class QRGuardianTerminal {
                     timestamp: s.timestamp,
                     valid: s.valid,
                     isDuplicate: s.isDuplicate,
+                    isExpired: s.isExpired,
+                    isNotYetValid: s.isNotYetValid,
                     eventName: s.eventName,
                     location: s.location,
                     price: s.price,
                     eventId: s.eventId,
-                    securityCode: s.securityCode
+                    securityCode: s.securityCode,
+                    validityStart: s.validityStart,
+                    validityEnd: s.validityEnd
                 }))
             };
             const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
@@ -340,7 +371,7 @@ class QRGuardianTerminal {
             a.click();
             URL.revokeObjectURL(url);
         } else if (format === 'csv') {
-            const headers = ['Date', 'Heure', 'Événement', 'Prix', 'Lieu', 'ID', 'Code secret', 'Valide', 'Doublon'];
+            const headers = ['Date', 'Heure', 'Événement', 'Prix', 'Lieu', 'ID', 'Code secret', 'Valide', 'Doublon', 'Expiré', 'Futur', 'Début validité', 'Fin validité'];
             const rows = history.map(s => [
                 new Date(s.timestamp).toLocaleDateString(),
                 new Date(s.timestamp).toLocaleTimeString(),
@@ -350,7 +381,11 @@ class QRGuardianTerminal {
                 s.eventId || '',
                 s.securityCode || '',
                 s.valid ? 'Oui' : 'Non',
-                s.isDuplicate ? 'Oui' : 'Non'
+                s.isDuplicate ? 'Oui' : 'Non',
+                s.isExpired ? 'Oui' : 'Non',
+                s.isNotYetValid ? 'Oui' : 'Non',
+                s.validityStart ? new Date(s.validityStart).toLocaleString() : '',
+                s.validityEnd ? new Date(s.validityEnd).toLocaleString() : ''
             ]);
             const csv = [headers.join(','), ...rows.map(r => r.map(c => `"${c}"`).join(','))].join('\n');
             const blob = new Blob([csv], { type: 'text/csv' });
@@ -372,6 +407,7 @@ class QRGuardianTerminal {
         if (copyCodeBtn) copyCodeBtn.addEventListener('click', () => this.copySecurityCode());
         
         const clearStorageBtn = document.getElementById('clearStorageBtn');
+        const syncBtn = document.getElementById('syncToSupabaseBtn'); // Nouveau bouton
         const adminContainer = document.getElementById('adminPasswordContainer');
         const cancelBtn = document.getElementById('cancelAdminPasswordBtn');
         const confirmBtn = document.getElementById('confirmAdminPasswordBtn');
@@ -391,6 +427,10 @@ class QRGuardianTerminal {
                 // Focus
                 if (passwordInput) passwordInput.focus();
             });
+        }
+
+        if (syncBtn) {
+            syncBtn.addEventListener('click', () => this.syncToSupabase());
         }
 
         if (cancelBtn) {
@@ -421,8 +461,14 @@ class QRGuardianTerminal {
                         if (adminContainer) adminContainer.classList.remove('show');
                         if (errorMsg) errorMsg.classList.remove('show');
                         
-                        // Procéder au nettoyage
-                        if (confirm('⚠️ Effacer TOUTES les données locales ?\nL\'historique et les paramètres seront supprimés. Le code secret sera conservé dans localStorage.')) {
+                        // Demander confirmation avec la nouvelle boîte de dialogue stylisée
+                        const confirmed = await this.showConfirmDialog(
+                            'Confirmation',
+                            '⚠️ Effacer TOUTES les données locales ?\nL\'historique et les paramètres seront supprimés. Le code secret sera conservé dans localStorage.',
+                            'Effacer',
+                            'Annuler'
+                        );
+                        if (confirmed) {
                             // Afficher un spinner sur le bouton "Nettoyer tout"
                             clearStorageBtn.disabled = true;
                             const originalText = clearStorageBtn.innerHTML;
@@ -455,6 +501,64 @@ class QRGuardianTerminal {
                     confirmBtn.disabled = false;
                     if (confirmSpinner) confirmSpinner.style.display = 'none';
                     if (confirmBtnText) confirmBtnText.style.opacity = '1';
+                }
+            });
+        }
+
+        // ===== GESTION DU CHANGEMENT DE MOT DE PASSE ADMIN =====
+        const oldPasswordInput = document.getElementById('oldPasswordInput');
+        const newPasswordInput = document.getElementById('newPasswordInput');
+        const confirmPasswordInput = document.getElementById('confirmPasswordInput');
+        const changePasswordBtn = document.getElementById('changePasswordBtn');
+        const passwordChangeError = document.getElementById('passwordChangeError');
+
+        if (changePasswordBtn) {
+            changePasswordBtn.addEventListener('click', async () => {
+                const oldPwd = oldPasswordInput.value.trim();
+                const newPwd = newPasswordInput.value.trim();
+                const confirmPwd = confirmPasswordInput.value.trim();
+
+                // Réinitialiser le message d'erreur
+                passwordChangeError.classList.remove('show');
+                passwordChangeError.textContent = '';
+
+                // Validations
+                if (!oldPwd || !newPwd || !confirmPwd) {
+                    passwordChangeError.textContent = 'Tous les champs sont requis.';
+                    passwordChangeError.classList.add('show');
+                    return;
+                }
+                if (newPwd !== confirmPwd) {
+                    passwordChangeError.textContent = 'Les nouveaux mots de passe ne correspondent pas.';
+                    passwordChangeError.classList.add('show');
+                    return;
+                }
+                if (newPwd.length < 6) {
+                    passwordChangeError.textContent = 'Le nouveau mot de passe doit contenir au moins 6 caractères.';
+                    passwordChangeError.classList.add('show');
+                    return;
+                }
+
+                // Vérifier l'ancien mot de passe
+                const isValid = await this.checkAdminPassword(oldPwd);
+                if (!isValid) {
+                    passwordChangeError.textContent = 'Ancien mot de passe incorrect.';
+                    passwordChangeError.classList.add('show');
+                    oldPasswordInput.value = '';
+                    oldPasswordInput.focus();
+                    return;
+                }
+
+                // Mettre à jour
+                try {
+                    await Database.saveSetting(this.ADMIN_PASSWORD_KEY, newPwd);
+                    this.showNotification('Succès', 'Mot de passe administrateur modifié.', 'success');
+                    oldPasswordInput.value = '';
+                    newPasswordInput.value = '';
+                    confirmPasswordInput.value = '';
+                } catch (error) {
+                    console.error('Erreur changement mot de passe:', error);
+                    this.showNotification('Erreur', 'Impossible de modifier le mot de passe.', 'error');
                 }
             });
         }
@@ -492,9 +596,90 @@ class QRGuardianTerminal {
         }
     }
 
-    // La méthode clearStorage n'est plus utilisée directement, mais on la garde pour compatibilité
-    async clearStorage() {
-        // Cette méthode n'est plus appelée
+    // ===== INDICATEUR DE CONNEXION =====
+    setupConnectionIndicator() {
+        const indicator = document.getElementById('connectionIndicator');
+        if (!indicator) return;
+        const update = () => {
+            if (navigator.onLine) {
+                indicator.className = 'connection-indicator online';
+                indicator.title = 'Connecté à Internet';
+            } else {
+                indicator.className = 'connection-indicator offline';
+                indicator.title = 'Hors ligne';
+            }
+        };
+        update();
+        window.addEventListener('online', update);
+        window.addEventListener('offline', update);
+    }
+
+    // ===== SYNCHRONISATION MANUELLE VERS SUPABASE =====
+    async syncToSupabase() {
+        const syncBtn = document.getElementById('syncToSupabaseBtn');
+        const originalText = syncBtn.innerHTML;
+        syncBtn.disabled = true;
+        syncBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Synchronisation...';
+
+        try {
+            const scans = await Database.getScanHistory('all', 0);
+            if (scans.length === 0) {
+                this.showNotification('Info', 'Aucun scan à synchroniser.', 'info');
+                return;
+            }
+
+            const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            let success = 0;
+            let errors = 0;
+
+            for (const scan of scans) {
+                try {
+                    const record = {
+                        event_name: scan.eventName,
+                        price: scan.price,
+                        location: scan.location,
+                        valid: scan.valid,
+                        security_code: scan.securityCode,
+                        event_id: scan.eventId,
+                        security_check: scan.securityCheck,
+                        is_duplicate: scan.isDuplicate || false,
+                        is_expired: scan.isExpired || false,
+                        is_not_yet_valid: scan.isNotYetValid || false,
+                        format: scan.format,
+                        raw_data: scan.rawData,
+                        validity_start: scan.validityStart,
+                        validity_end: scan.validityEnd,
+                        timestamp: scan.timestamp,
+                        is_connection: scan.isConnection || false,
+                        qr_type: scan.qrType || 'standard'
+                    };
+                    const { error } = await supabase.from('scans').insert([record]);
+                    if (error) {
+                        // Ignorer les erreurs de duplication (code 23505) si vous avez une contrainte unique
+                        if (error.code === '23505') {
+                            // déjà présent, on compte comme succès
+                            success++;
+                        } else {
+                            console.warn('Erreur insertion scan:', error);
+                            errors++;
+                        }
+                    } else {
+                        success++;
+                    }
+                } catch (e) {
+                    console.warn('Erreur envoi scan:', e);
+                    errors++;
+                }
+            }
+
+            this.showNotification('Synchronisation terminée', `${success} scans envoyés, ${errors} erreurs.`, errors ? 'warning' : 'success');
+        } catch (error) {
+            console.error('Erreur synchronisation:', error);
+            this.showNotification('Erreur', 'Échec de la synchronisation', 'error');
+        } finally {
+            syncBtn.disabled = false;
+            syncBtn.innerHTML = originalText;
+        }
     }
 
     // ===== NOTIFICATIONS =====
@@ -518,6 +703,44 @@ class QRGuardianTerminal {
                 setTimeout(() => notif.remove(), 300);
             }, 5000);
         } catch (e) {}
+    }
+
+    // ===== CONFIRMATION STYLISÉE (remplace les confirm() natifs) =====
+    showConfirmDialog(title, message, confirmText = 'Confirmer', cancelText = 'Annuler') {
+        return new Promise((resolve) => {
+            const notif = document.createElement('div');
+            notif.className = 'notification confirm';
+            notif.innerHTML = `
+                <div class="notification-header">
+                    <i class="fas fa-question-circle"></i>
+                    <h4>${title}</h4>
+                </div>
+                <p>${message}</p>
+                <div class="confirm-actions">
+                    <button class="btn btn-secondary btn-sm" id="confirmCancelBtn">${cancelText}</button>
+                    <button class="btn btn-danger btn-sm" id="confirmOkBtn">${confirmText}</button>
+                </div>
+            `;
+            document.body.appendChild(notif);
+            setTimeout(() => notif.classList.add('show'), 10);
+
+            const okBtn = notif.querySelector('#confirmOkBtn');
+            const cancelBtn = notif.querySelector('#confirmCancelBtn');
+
+            const cleanup = () => {
+                notif.classList.remove('show');
+                setTimeout(() => notif.remove(), 300);
+            };
+
+            okBtn.addEventListener('click', () => {
+                cleanup();
+                resolve(true);
+            });
+            cancelBtn.addEventListener('click', () => {
+                cleanup();
+                resolve(false);
+            });
+        });
     }
 }
 
