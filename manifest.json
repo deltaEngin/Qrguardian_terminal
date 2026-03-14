@@ -1,6 +1,6 @@
 {
   "name": "QRGuardian Terminal",
-  "short_name": "QRGuardian",
+  "short_name": "Terminal",
   "description": "Terminal de contrôle anti-fraude pour QR codes sécurisés",
   "start_url": "./index.html",
   "display": "standalone",
