@@ -604,9 +604,11 @@ class QRGuardianTerminal {
             if (navigator.onLine) {
                 indicator.className = 'connection-indicator online';
                 indicator.title = 'Connecté à Internet';
+                indicator.textContent = 'En ligne'; // Ajout du texte
             } else {
                 indicator.className = 'connection-indicator offline';
                 indicator.title = 'Hors ligne';
+                indicator.textContent = 'Hors ligne'; // Ajout du texte
             }
         };
         update();
@@ -622,9 +624,10 @@ class QRGuardianTerminal {
         syncBtn.innerHTML = '<i class="bi bi-arrow-repeat fa-spin"></i> Synchronisation...';
 
         try {
-            const scans = await Database.getScanHistory('all', 0);
-            if (scans.length === 0) {
-                this.showNotification('Info', 'Aucun scan à synchroniser.', 'info');
+            // Récupérer uniquement les scans non encore synchronisés
+            const unsyncedScans = await Database.getUnsyncedScans();
+            if (unsyncedScans.length === 0) {
+                this.showNotification('Info', 'Tous les scans sont déjà synchronisés.', 'info');
                 return;
             }
 
@@ -632,7 +635,7 @@ class QRGuardianTerminal {
             let success = 0;
             let errors = 0;
 
-            for (const scan of scans) {
+            for (const scan of unsyncedScans) {
                 try {
                     const record = {
                         event_name: scan.eventName,
@@ -655,15 +658,17 @@ class QRGuardianTerminal {
                     };
                     const { error } = await supabase.from('scans').insert([record]);
                     if (error) {
-                        // Ignorer les erreurs de duplication (code 23505) si vous avez une contrainte unique
+                        // Si c'est une erreur de doublon, on considère que c'est déjà synchronisé
                         if (error.code === '23505') {
-                            // déjà présent, on compte comme succès
+                            await Database.markScanAsSynced(scan.id);
                             success++;
                         } else {
                             console.warn('Erreur insertion scan:', error);
                             errors++;
                         }
                     } else {
+                        // Succès : marquer comme synchronisé
+                        await Database.markScanAsSynced(scan.id);
                         success++;
                     }
                 } catch (e) {
