@@ -5,17 +5,30 @@ const urlsToCache = [
   '/index.html',
   '/manifest.json',
 
+  // CSS
+  '/css/bootstrap.min.css',
+  '/css/bootstrap-icons.min.css',
+  '/css/index.css',
+
+  // FONTS POPPINS
+  '/css/fonts/poppins-v24-latin_latin-ext-100.woff2',
+  '/css/fonts/poppins-v24-latin_latin-ext-200.woff2',
+  '/css/fonts/poppins-v24-latin_latin-ext-300.woff2',
+  '/css/fonts/poppins-v24-latin_latin-ext-regular.woff2',
+  '/css/fonts/poppins-v24-latin_latin-ext-500.woff2',
+  '/css/fonts/poppins-v24-latin_latin-ext-600.woff2',
+  '/css/fonts/poppins-v24-latin_latin-ext-700.woff2',
+  '/css/fonts/poppins-v24-latin_latin-ext-800.woff2',
+  '/css/fonts/poppins-v24-latin_latin-ext-900.woff2',
+
+  // JS
   '/js/qrcode.min.js',
   '/js/jsQR.min.js',
   '/js/database.js',
   '/js/scanner.js',
   '/js/app.js',
 
-  // CDN
-  'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css',
-  'https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap',
-
-  // icons
+  // ICONS
   '/icons/icon-72x72.png',
   '/icons/icon-96x96.png',
   '/icons/icon-128x128.png',
