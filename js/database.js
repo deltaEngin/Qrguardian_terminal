@@ -1,7 +1,7 @@
 // Gestion de la base de données IndexedDB - Version corrigée (connexion unique)
 class Database {
     static DB_NAME = 'QRGuardianDB';
-    static DB_VERSION = 5;
+    static DB_VERSION = 6; // ← Version augmentée pour ajouter l'index supabaseSynced
     static STORES = {
         KEYS: 'keys',
         HISTORY: 'scanHistory',
@@ -64,14 +64,14 @@ class Database {
                     historyStore.createIndex('eventId', 'eventId', { unique: false });
                     historyStore.createIndex('isConnection', 'isConnection', { unique: false });
                     historyStore.createIndex('isDuplicate', 'isDuplicate', { unique: false });
-                } else if (oldVersion < 5) {
+                    // NOUVEAU : index pour les scans non synchronisés
+                    historyStore.createIndex('supabaseSynced', 'supabaseSynced', { unique: false });
+                } else if (oldVersion < 6) {
+                    // Mise à jour vers version 6 : ajout de l'index supabaseSynced
                     const tx = event.target.transaction;
                     const historyStore = tx.objectStore(this.STORES.HISTORY);
-                    if (!historyStore.indexNames.contains('isConnection')) {
-                        historyStore.createIndex('isConnection', 'isConnection', { unique: false });
-                    }
-                    if (!historyStore.indexNames.contains('isDuplicate')) {
-                        historyStore.createIndex('isDuplicate', 'isDuplicate', { unique: false });
+                    if (!historyStore.indexNames.contains('supabaseSynced')) {
+                        historyStore.createIndex('supabaseSynced', 'supabaseSynced', { unique: false });
                     }
                 }
 
@@ -216,6 +216,58 @@ class Database {
         }
     }
 
+    // NOUVELLE MÉTHODE : marquer un scan comme synchronisé
+    static async markScanAsSynced(id) {
+        try {
+            const db = await this._ensureDB();
+            const tx = db.transaction(this.STORES.HISTORY, 'readwrite');
+            const store = tx.objectStore(this.STORES.HISTORY);
+            return new Promise((resolve, reject) => {
+                const request = store.get(id);
+                request.onsuccess = () => {
+                    const scan = request.result;
+                    if (scan) {
+                        scan.supabaseSynced = true;
+                        scan.supabaseSyncedAt = new Date().toISOString();
+                        const updateRequest = store.put(scan);
+                        updateRequest.onsuccess = () => resolve();
+                        updateRequest.onerror = (e) => reject(e.target.error);
+                    } else {
+                        resolve(); // scan introuvable, on ignore
+                    }
+                };
+                request.onerror = (e) => reject(e.target.error);
+            });
+        } catch (error) {
+            console.error('Erreur markScanAsSynced:', error);
+        }
+    }
+
+    // NOUVELLE MÉTHODE : récupérer les scans non synchronisés
+    static async getUnsyncedScans() {
+        try {
+            const db = await this._ensureDB();
+            const tx = db.transaction(this.STORES.HISTORY, 'readonly');
+            const store = tx.objectStore(this.STORES.HISTORY);
+            // On utilise l'index supabaseSynced pour les scans explicitement false
+            // et on complète avec ceux qui n'ont pas encore ce champ (undefined)
+            return new Promise((resolve) => {
+                const results = [];
+                const request = store.getAll();
+                request.onsuccess = () => {
+                    const allScans = request.result;
+                    // Filtre : supabaseSynced !== true (donc false ou undefined)
+                    const unsynced = allScans.filter(scan => !scan.supabaseSynced);
+                    resolve(unsynced);
+                };
+                request.onerror = () => resolve([]);
+            });
+        } catch (error) {
+            console.error('Erreur getUnsyncedScans:', error);
+            return [];
+        }
+    }
+
     static async saveScan(scanData) {
         try {
             const isConnectionScan = scanData.isConnection || 
@@ -223,7 +275,8 @@ class Database {
             const scanRecord = {
                 ...scanData,
                 isConnection: isConnectionScan,
-                timestamp: scanData.timestamp || new Date().toISOString()
+                timestamp: scanData.timestamp || new Date().toISOString(),
+                supabaseSynced: false  // ← NOUVEAU : par défaut non synchronisé
             };
 
             if (scanRecord.valid && scanRecord.eventId && !scanRecord.isDuplicate) {
@@ -243,7 +296,8 @@ class Database {
             const savePromise = new Promise((resolve, reject) => {
                 const request = store.add(scanRecord);
                 request.onsuccess = (e) => {
-                    resolve({ id: e.target.result, isDuplicate: scanRecord.isDuplicate });
+                    const id = e.target.result;
+                    resolve({ id, isDuplicate: scanRecord.isDuplicate });
                 };
                 request.onerror = (e) => {
                     console.error('❌ Erreur saveScan (add):', e.target.error);
@@ -251,10 +305,12 @@ class Database {
                 };
             });
 
+            // On attend l'ID pour pouvoir l'utiliser après l'envoi Supabase
+            const { id } = await savePromise;
+
             // ---- ENVOI À SUPABASE (asynchrone, ne bloque pas) ----
             (async () => {
                 try {
-                    // Ces variables sont définies dans app.js (globales)
                     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
                     const record = {
                         event_name: scanRecord.eventName,
@@ -273,17 +329,27 @@ class Database {
                         validity_end: scanRecord.validityEnd,
                         timestamp: scanRecord.timestamp,
                         is_connection: scanRecord.isConnection || false,
-                        qr_type: scanRecord.qrType || 'standard' // AJOUT
+                        qr_type: scanRecord.qrType || 'standard'
                     };
                     const { error } = await supabase.from('scans').insert([record]);
-                    if (error) console.warn('Supabase insert error:', error);
+                    if (error) {
+                        // Si c'est une erreur de doublon (23505), on considère que c'est déjà synchronisé
+                        if (error.code === '23505') {
+                            await Database.markScanAsSynced(id);
+                        } else {
+                            console.warn('Supabase insert error:', error);
+                        }
+                    } else {
+                        // Succès : marquer comme synchronisé
+                        await Database.markScanAsSynced(id);
+                    }
                 } catch (e) {
                     console.warn('Erreur envoi à Supabase', e);
                 }
             })();
             // -------------------------------------------------------
 
-            return savePromise;
+            return { id, isDuplicate: scanRecord.isDuplicate };
         } catch (error) {
             console.error('❌ Erreur saveScan:', error);
             throw error;
@@ -300,7 +366,8 @@ class Database {
                 eventId: `CONN-${Date.now()}`,
                 securityCheck: { valid: true, message: '✅ CONNEXION RÉUSSIE' },
                 isConnection: true,
-                rawData: JSON.stringify(connectionData).substring(0, 200)
+                rawData: JSON.stringify(connectionData).substring(0, 200),
+                supabaseSynced: false
             };
 
             const db = await this._ensureDB();
