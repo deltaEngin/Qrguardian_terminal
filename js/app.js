@@ -183,7 +183,7 @@ class QRGuardianTerminal {
             document.body.classList.toggle('light-theme', isLight);
             document.body.classList.toggle('dark-theme', !isLight);
             const icon = themeToggle.querySelector('i');
-            if (icon) icon.className = isLight ? 'fas fa-sun' : 'fas fa-moon';
+            if (icon) icon.className = isLight ? 'bi bi-brightness-high-fill' : 'bi bi-moon-fill';
         };
         applyTheme(savedTheme === 'light');
         themeToggle.addEventListener('click', () => {
@@ -252,7 +252,7 @@ class QRGuardianTerminal {
             if (history.length === 0) {
                 list.innerHTML = `
                     <div class="empty-history">
-                        <i class="fas fa-history fa-3x"></i>
+                        <i class="bi bi-clock-history fa-3x"></i>
                         <h4>Aucun scan</h4>
                         <p>Utilisez le scanner pour commencer</p>
                     </div>
@@ -266,19 +266,19 @@ class QRGuardianTerminal {
                 return `
                 <div class="history-item ${scan.valid ? 'valid' : 'invalid'} ${scan.isDuplicate ? 'duplicate' : ''}">
                     <div class="history-item-header">
-                        <i class="fas fa-${scan.isDuplicate ? 'exclamation-triangle' : scan.valid ? 'check-circle' : 'times-circle'}"></i>
+                        <i class="bi ${scan.isDuplicate ? 'bi-exclamation-triangle-fill' : scan.valid ? 'bi-check-circle-fill' : 'bi-x-circle-fill'}"></i>
                         <span class="history-event">${scan.eventName || 'QR Code'}</span>
                         <span class="history-date">${new Date(scan.timestamp).toLocaleDateString()}</span>
                     </div>
                     <div class="history-item-details">
-                        ${scan.location ? `<p><i class="fas fa-map-marker-alt"></i> ${scan.location}</p>` : ''}
-                        ${scan.price ? `<p><i class="fas fa-tag"></i> ${scan.price}</p>` : ''}
-                        ${start ? `<p><i class="fas fa-hourglass-start"></i> Début: ${start}</p>` : ''}
-                        ${end ? `<p><i class="fas fa-hourglass-end"></i> Fin: ${end}</p>` : ''}
-                        <p><i class="fas fa-clock"></i> ${new Date(scan.timestamp).toLocaleTimeString()}</p>
-                        ${scan.isDuplicate ? '<span class="duplicate-badge"><i class="fas fa-exclamation-circle"></i> Doublon</span>' : ''}
-                        ${scan.isExpired ? '<span class="expired-badge"><i class="fas fa-hourglass-end"></i> Expiré</span>' : ''}
-                        ${scan.isNotYetValid ? '<span class="future-badge"><i class="fas fa-hourglass-start"></i> Futur</span>' : ''}
+                        ${scan.location ? `<p><i class="bi bi-geo-alt-fill"></i> ${scan.location}</p>` : ''}
+                        ${scan.price ? `<p><i class="bi bi-tag-fill"></i> ${scan.price}</p>` : ''}
+                        ${start ? `<p><i class="bi bi-hourglass-top"></i> Début: ${start}</p>` : ''}
+                        ${end ? `<p><i class="bi bi-hourglass-bottom"></i> Fin: ${end}</p>` : ''}
+                        <p><i class="bi bi-clock"></i> ${new Date(scan.timestamp).toLocaleTimeString()}</p>
+                        ${scan.isDuplicate ? '<span class="duplicate-badge"><i class="bi bi-exclamation-circle-fill"></i> Doublon</span>' : ''}
+                        ${scan.isExpired ? '<span class="expired-badge"><i class="bi bi-hourglass-bottom"></i> Expiré</span>' : ''}
+                        ${scan.isNotYetValid ? '<span class="future-badge"><i class="bi bi-hourglass-top"></i> Futur</span>' : ''}
                     </div>
                 </div>
             `}).join('');
@@ -472,7 +472,7 @@ class QRGuardianTerminal {
                             // Afficher un spinner sur le bouton "Nettoyer tout"
                             clearStorageBtn.disabled = true;
                             const originalText = clearStorageBtn.innerHTML;
-                            clearStorageBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Nettoyage...';
+                            clearStorageBtn.innerHTML = '<i class="bi bi-arrow-repeat fa-spin"></i> Nettoyage...';
                             
                             try {
                                 await Database.clearAll();
@@ -619,7 +619,7 @@ class QRGuardianTerminal {
         const syncBtn = document.getElementById('syncToSupabaseBtn');
         const originalText = syncBtn.innerHTML;
         syncBtn.disabled = true;
-        syncBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Synchronisation...';
+        syncBtn.innerHTML = '<i class="bi bi-arrow-repeat fa-spin"></i> Synchronisation...';
 
         try {
             const scans = await Database.getScanHistory('all', 0);
@@ -691,7 +691,7 @@ class QRGuardianTerminal {
             notif.className = `notification ${type}`;
             notif.innerHTML = `
                 <div class="notification-header">
-                    <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'info-circle'}"></i>
+                    <i class="bi ${type === 'success' ? 'bi-check-circle-fill' : type === 'error' ? 'bi-exclamation-circle-fill' : 'bi-info-circle-fill'}"></i>
                     <h4>${title}</h4>
                 </div>
                 <p>${message}</p>
@@ -712,7 +712,7 @@ class QRGuardianTerminal {
             notif.className = 'notification confirm';
             notif.innerHTML = `
                 <div class="notification-header">
-                    <i class="fas fa-question-circle"></i>
+                    <i class="bi bi-question-circle-fill"></i>
                     <h4>${title}</h4>
                 </div>
                 <p>${message}</p>
