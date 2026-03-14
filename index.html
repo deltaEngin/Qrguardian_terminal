@@ -9,12 +9,16 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="QRGuardian">
     <link rel="apple-touch-icon" href="./icons/icon-192x192.png">
-    <!-- Polices Google : Poppins pour le système, Montserrat pour le ticket -->
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <!-- Manifeste PWA -->
     <link rel="manifest" href="./manifest.json">
+    <!-- Polices Google : Poppins pour le système, Montserrat pour le ticket -->
+    <link href="./css/index.css" rel="stylesheet">
+    <!-- Bootstrap CSS -->
+    <link href="./css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="./css/bootstrap-icons.min.css">
+    <!-- Font Awesome (conservé pour compatibilité scripts) -->
+   
     <title>QRGuardian - Terminal de contrôle</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
         /* ===== VARIABLES ET RESET ===== */
         :root {
@@ -113,18 +117,13 @@
             border: 1px solid #cbd5e1;
             color: #334155;
         }
-        .light-theme .theme-toggle i.fa-sun {
+        .light-theme .theme-toggle i.bi-sun {
             color: #f59e0b;
         }
-        .light-theme .theme-toggle i.fa-moon {
+        .light-theme .theme-toggle i.bi-moon {
             color: #475569;
         }
-        .light-theme .connection-indicator i.fa-wifi {
-            color: #10b981;
-        }
-        .light-theme .connection-indicator i.fa-exclamation-triangle {
-            color: #ef4444;
-        }
+        /* Suppression des règles liées à l'icône Wi-Fi */
         .light-theme .logo-icon {
             color: #2563eb;
             background: none;
@@ -224,7 +223,7 @@
         /* ===== STYLES GÉNÉRAUX ===== */
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-family: 'Poppins', -apple-system, BlinkMacSystemFont, sans-serif;
             background: var(--color-primary-dark);
             color: var(--color-text);
             min-height: 100vh;
@@ -284,26 +283,27 @@
             gap: 1rem;
             align-items: center;
         }
+        /* Indicateur de connexion - modifié pour afficher du texte */
         .connection-indicator {
             background: var(--color-surface);
             color: var(--color-text);
             border: 1px solid var(--color-border);
-            width: 2.5rem;
-            height: 2.5rem;
+            padding: 0.5rem 1rem;
             border-radius: var(--radius-full);
-            display: flex;
+            display: inline-flex;
             align-items: center;
             justify-content: center;
             cursor: default;
+            font-size: 0.875rem;
+            font-weight: 600;
         }
-        .connection-indicator i {
-            font-size: 1.2rem;
-        }
-        .connection-indicator.online i {
+        .connection-indicator.online {
             color: var(--color-success);
+            border-color: var(--color-success);
         }
-        .connection-indicator.offline i {
+        .connection-indicator.offline {
             color: var(--color-danger);
+            border-color: var(--color-danger);
         }
         .btn {
             padding: 0.75rem 1.5rem;
@@ -543,8 +543,8 @@
             padding: 1rem;
             border-radius: var(--radius-md);
             margin-bottom: 1.5rem;
-            background: rgba(30,58,138,0.2);
-            border: 1px solid rgba(59,130,246,0.3);
+            background: rgba(16, 185, 129, 0.2);
+            border: 1px solid rgba(0, 245, 46, 0.3);
         }
         .result-field {
             display: flex;
@@ -787,7 +787,7 @@
             background: var(--color-text-secondary);
             margin-right: 0.5rem;
         }
-        .status-indicator.active { background: var(--color-success); box-shadow: 0 0 0 2px rgba(16,185,129,0.2); }
+        .status-indicator.active { background: var(--color-success); box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2); }
         .status-indicator.inactive { background: var(--color-danger); }
         .code-box {
             background: var(--color-secondary);
@@ -931,29 +931,27 @@
         }
     </style>
 </head>
-<body class="dark-theme">
+<body class="light-theme">  <!-- Passage au thème clair -->
     <!-- Contenu identique, inchangé -->
     <div class="app-container">
         <header class="app-header">
             <div class="header-content">
                 <div class="logo-container">
-                    <i class="fas fa-shield-alt logo-icon"></i>
+                    <i class="bi bi-shield logo-icon"></i>
                     <div class="logo-text">
                         <h1 class="app-title">QRGuardian</h1>
                         <span class="app-subtitle">Terminal de contrôle</span>
                     </div>
                 </div>
                 <div class="header-actions">
-                    <!-- Indicateur de connexion -->
+                    <!-- Indicateur de connexion - modifié : icône supprimée, texte ajouté -->
                     <div class="connection-indicator" id="connectionIndicator" title="Connexion">
-                        <i class="fas fa-wifi"></i>
+                        <span id="connectionStatusText">En ligne</span>
                     </div>
                     <button id="refreshBtn" class="refresh-btn" aria-label="Rafraîchir">
-                        <i class="fas fa-sync-alt"></i>
+                        <i class="bi bi-arrow-repeat"></i>
                     </button>
-                    <button id="themeToggle" class="theme-toggle" aria-label="Changer de thème">
-                        <i class="fas fa-moon"></i>
-                    </button>
+                    <!-- Bouton thème blanc supprimé -->
                 </div>
             </div>
         </header>
@@ -962,17 +960,17 @@
             <!-- PAGE SCANNER -->
             <section class="page active" id="scanPage">
                 <div class="page-header">
-                    <h2 class="page-title"><i class="fas fa-camera"></i> Scanner</h2>
+                    <h2 class="page-title"><i class="bi bi-camera"></i> Scanner</h2>
                     <p class="page-subtitle">Vérifiez l'authenticité des QR codes</p>
                 </div>
                 <div class="scanner-container" id="scannerContainer">
                     <!-- Placeholder initial -->
                     <div class="scanner-placeholder" id="scannerPlaceholder">
-                        <i class="fas fa-shield-alt"></i>
+                        <i class="bi bi-camera"></i>
                         <h3>Terminal Anti-Fraude</h3>
                         <p>Scannez un QR code pour vérifier son authenticité</p>
                         <button class="btn btn-primary" id="startScanBtn" style="margin-top:1.5rem;">
-                            <i class="fas fa-camera"></i> Démarrer le scan
+                            Démarrer le scan
                         </button>
                     </div>
                     <div class="scanner-view" id="scannerView">
@@ -985,10 +983,10 @@
                 </div>
                 <div style="display:flex; gap:1rem; margin-top:1.5rem;">
                     <button class="btn btn-secondary" id="uploadScanBtn" style="flex:1;">
-                        <i class="fas fa-image"></i> Importer une image
+                        <i class="bi bi-image"></i> Importer une image
                     </button>
                     <button class="btn btn-danger" id="stopScanBtn" style="display:none; flex:1;">
-                        <i class="fas fa-stop"></i> Arrêter
+                        <i class="bi bi-stop"></i> Arrêter
                     </button>
                 </div>
             </section>
@@ -996,22 +994,22 @@
             <!-- PAGE HISTORIQUE -->
             <section class="page" id="historyPage">
                 <div class="page-header">
-                    <h2 class="page-title"><i class="fas fa-history"></i> Historique</h2>
+                    <h2 class="page-title"><i class="bi bi-clock-history"></i> Historique</h2>
                     <p class="page-subtitle">Tous les scans effectués</p>
                 </div>
                 <div class="history-controls">
                     <div class="filter-tabs">
-                        <button class="filter-tab active" data-filter="all"><i class="fas fa-list"></i> Tous</button>
-                        <button class="filter-tab" data-filter="valid"><i class="fas fa-check-circle"></i> Valides</button>
-                        <button class="filter-tab" data-filter="invalid"><i class="fas fa-times-circle"></i> Invalides</button>
-                        <button class="filter-tab" data-filter="duplicate"><i class="fas fa-copy"></i> Doublons</button>
-                        <button class="filter-tab" data-filter="connection"><i class="fas fa-link"></i> Connexions</button>
+                        <button class="filter-tab active" data-filter="all"><i class="bi bi-list"></i> Tous</button>
+                        <button class="filter-tab" data-filter="valid"><i class="bi bi-check-circle"></i> Valides</button>
+                        <button class="filter-tab" data-filter="invalid"><i class="bi bi-x-circle"></i> Invalides</button>
+                        <button class="filter-tab" data-filter="duplicate"><i class="bi bi-files"></i> Doublons</button>
+                        <button class="filter-tab" data-filter="connection"><i class="bi bi-link"></i> Connexions</button>
                     </div>
                     <!-- Bouton Vider supprimé -->
                 </div>
                 <div class="history-list" id="historyList">
                     <div class="empty-history">
-                        <i class="fas fa-history fa-3x"></i>
+                        <i class="bi bi-clock-history" style="font-size:3rem;"></i>
                         <h4>Aucun scan</h4>
                         <p>Utilisez le scanner pour commencer</p>
                     </div>
@@ -1021,27 +1019,27 @@
             <!-- PAGE STATISTIQUES (sans graphique, mais avec place pour chart si désiré) -->
             <section class="page" id="statsPage">
                 <div class="page-header">
-                    <h2 class="page-title"><i class="fas fa-chart-bar"></i> Statistiques</h2>
+                    <h2 class="page-title"><i class="bi bi-bar-chart"></i> Statistiques</h2>
                     <p class="page-subtitle">Analyse des scans et de la fraude</p>
                 </div>
                 <div class="stats-cards">
                     <div class="stat-card">
-                        <i class="fas fa-check-circle"></i>
+                        <i class="bi bi-check-circle text-success"></i>
                         <div class="stat-value" id="statValid">0</div>
                         <div class="stat-label">Valides</div>
                     </div>
                     <div class="stat-card">
-                        <i class="fas fa-times-circle"></i>
+                        <i class="bi bi-x-circle text-danger"></i>
                         <div class="stat-value" id="statInvalid">0</div>
                         <div class="stat-label">Invalides</div>
                     </div>
                     <div class="stat-card">
-                        <i class="fas fa-copy"></i>
+                        <i class="bi bi-files text-warning"></i>
                         <div class="stat-value" id="statDuplicate">0</div>
                         <div class="stat-label">Doublons</div>
                     </div>
                     <div class="stat-card">
-                        <i class="fas fa-qrcode"></i>
+                        <i class="bi bi-qr-code"></i>
                         <div class="stat-value" id="statTotal">0</div>
                         <div class="stat-label">Total scans</div>
                     </div>
@@ -1053,14 +1051,14 @@
             <!-- PAGE PARAMÈTRES -->
             <section class="page" id="settingsPage">
                 <div class="page-header">
-                    <h2 class="page-title"><i class="fas fa-cog"></i> Paramètres</h2>
+                    <h2 class="page-title"><i class="bi bi-gear"></i> Paramètres</h2>
                     <p class="page-subtitle">Gestion du code secret, du stockage et export des données</p>
                 </div>
                 <div class="settings-grid">
                     <!-- Code Secret Synchronisé -->
                     <div class="settings-card">
                         <div class="settings-card-header">
-                            <i class="fas fa-key"></i>
+                            <i class="bi bi-key"></i>
                             <h3>Code Secret</h3>
                         </div>
                         <div class="settings-card-body">
@@ -1078,20 +1076,20 @@
                                 ---
                             </div>
                             <div style="display:flex; gap:0.5rem;">
-                                <button class="btn btn-secondary" id="deleteCodeBtn" style="flex:1;" disabled><i class="fas fa-trash"></i> Supprimer</button>
-                                <button class="btn btn-primary" id="copyCodeBtn" style="flex:1;" disabled><i class="fas fa-copy"></i> Copier</button>
+                                <button class="btn btn-secondary" id="deleteCodeBtn" style="flex:1;" disabled><i class="bi bi-trash"></i> Supprimer</button>
+                                <button class="btn btn-primary" id="copyCodeBtn" style="flex:1;" disabled><i class="bi bi-files"></i> Copier</button>
                             </div>
                         </div>
                     </div>
                     <!-- Stockage -->
                     <div class="settings-card">
                         <div class="settings-card-header">
-                            <i class="fas fa-database"></i>
+                            <i class="bi bi-database"></i>
                             <h3>Stockage Local</h3>
                         </div>
                         <div class="settings-card-body">
                             <div class="stat-item">
-                                <i class="fas fa-hdd"></i>
+                                <i class="bi bi-hdd"></i>
                                 <div style="flex:1;">
                                     <div>Espace utilisé</div>
                                     <small style="color:var(--color-text-secondary);" id="storageUsage">Calcul...</small>
@@ -1106,10 +1104,10 @@
                             </div>
                             <div style="display:flex; gap:0.5rem; margin-top:1rem;">
                                 <button class="btn btn-danger" id="clearStorageBtn" style="flex:1;">
-                                    <i class="fas fa-trash"></i> Nettoyer tout
+                                    <i class="bi bi-trash"></i> Nettoyer tout
                                 </button>
                                 <button class="btn btn-success" id="syncToSupabaseBtn" style="flex:1;">
-                                    <i class="fas fa-cloud-upload-alt"></i> Synchroniser
+                                    <i class="bi bi-cloud-upload"></i> Synchroniser
                                 </button>
                             </div>
                             <!-- Bloc de confirmation admin -->
@@ -1129,7 +1127,7 @@
                     <!-- ===== NOUVELLE CARTE : MOT DE PASSE ADMINISTRATEUR ===== -->
                     <div class="settings-card">
                         <div class="settings-card-header">
-                            <i class="fas fa-lock"></i>
+                            <i class="bi bi-lock"></i>
                             <h3>Mot de passe administrateur</h3>
                         </div>
                         <div class="settings-card-body">
@@ -1150,14 +1148,14 @@
                             </div>
                             <div id="passwordChangeError" class="error-message" style="margin-bottom:1rem;"></div>
                             <button class="btn btn-primary" id="changePasswordBtn" style="width:100%;">
-                                <i class="fas fa-save"></i> Changer le mot de passe
+                                <i class="bi bi-save"></i> Changer le mot de passe
                             </button>
                         </div>
                     </div>
                     <!-- Export des données -->
                     <div class="settings-card">
                         <div class="settings-card-header">
-                            <i class="fas fa-download"></i>
+                            <i class="bi bi-download"></i>
                             <h3>Export des données</h3>
                         </div>
                         <div class="settings-card-body">
@@ -1166,10 +1164,10 @@
                             </p>
                             <div style="display:flex; gap:1rem; flex-wrap:wrap;">
                                 <button class="btn btn-secondary" id="exportCSVBtn" style="flex:1;">
-                                    <i class="fas fa-file-csv"></i> Exporter CSV
+                                    <i class="bi bi-file-earmark-spreadsheet"></i> Exporter CSV
                                 </button>
                                 <button class="btn btn-secondary" id="exportJSONBtn" style="flex:1;">
-                                    <i class="fas fa-file-code"></i> Exporter JSON
+                                    <i class="bi bi-file-earmark-code"></i> Exporter JSON
                                 </button>
                             </div>
                         </div>
@@ -1177,7 +1175,7 @@
                     <!-- À propos - carte plus large sur desktop -->
                     <div class="settings-card settings-card-wide">
                         <div class="settings-card-header">
-                            <i class="fas fa-info-circle"></i>
+                            <i class="bi bi-info-circle"></i>
                             <h3>QRGuardian Terminal</h3>
                         </div>
                         <div class="settings-card-body">
@@ -1200,19 +1198,19 @@
         <!-- Navigation bas (4 onglets) -->
         <nav class="bottom-nav">
             <button class="nav-btn active" data-page="scanPage">
-                <div class="nav-icon"><i class="fas fa-camera"></i></div>
+                <div class="nav-icon"><i class="bi bi-camera"></i></div>
                 <span class="nav-label">Scanner</span>
             </button>
             <button class="nav-btn" data-page="historyPage">
-                <div class="nav-icon"><i class="fas fa-history"></i></div>
+                <div class="nav-icon"><i class="bi bi-clock-history"></i></div>
                 <span class="nav-label">Historique</span>
             </button>
             <button class="nav-btn" data-page="statsPage">
-                <div class="nav-icon"><i class="fas fa-chart-bar"></i></div>
+                <div class="nav-icon"><i class="bi bi-bar-chart"></i></div>
                 <span class="nav-label">Statistiques</span>
             </button>
             <button class="nav-btn" data-page="settingsPage">
-                <div class="nav-icon"><i class="fas fa-cog"></i></div>
+                <div class="nav-icon"><i class="bi bi-gear"></i></div>
                 <span class="nav-label">Paramètres</span>
             </button>
         </nav>
@@ -1225,11 +1223,12 @@
     <script src="./js/scanner.js"></script>
     <script src="./js/app.js"></script>
     <!-- Scripts supabase -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script> 
+    <!-- Script inline corrigé -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('service-worker.js')
+                navigator.serviceWorker.register('sw.js')
                     .then(reg => console.log('Service Worker enregistré (scope:', reg.scope, ')'))
                     .catch(err => console.error('Erreur Service Worker:', err));
             });
