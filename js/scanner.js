@@ -83,11 +83,11 @@ QRScanner.ensureElements = function() {
         controls.id = 'scannerControls';
         controls.className = 'scanner-controls';
         controls.innerHTML = `
-            <button id="flashBtn" class="btn-icon" title="Activer/désactiver flash" disabled><i class="fas fa-bolt"></i></button>
+            <button id="flashBtn" class="btn-icon" title="Activer/désactiver flash" disabled><i class="bi bi-lightning-charge"></i></button>
             <div class="zoom-controls">
-                <button id="zoomOutBtn" class="btn-icon" title="Zoom arrière" disabled><i class="fas fa-search-minus"></i></button>
+                <button id="zoomOutBtn" class="btn-icon" title="Zoom arrière" disabled><i class="bi bi-zoom-out"></i></button>
                 <span id="zoomLevel">1.0x</span>
-                <button id="zoomInBtn" class="btn-icon" title="Zoom avant" disabled><i class="fas fa-search-plus"></i></button>
+                <button id="zoomInBtn" class="btn-icon" title="Zoom avant" disabled><i class="bi bi-zoom-in"></i></button>
             </div>
         `;
         scannerView.appendChild(controls);
@@ -97,7 +97,7 @@ QRScanner.ensureElements = function() {
         const stopBtn = document.createElement('button');
         stopBtn.id = 'stopScanBtn';
         stopBtn.className = 'btn btn-danger';
-        stopBtn.innerHTML = '<i class="fas fa-stop"></i> Arrêter le scanner';
+        stopBtn.innerHTML = '<i class="bi bi-stop-fill"></i> Arrêter le scanner';
         stopBtn.style.display = 'none';
         scannerView.appendChild(stopBtn);
     }
@@ -154,11 +154,11 @@ QRScanner.ensureElements = function() {
 QRScanner.getDefaultPlaceholderHTML = function() {
     return `
         <div style="text-align:center; padding:40px 20px;">
-            <i class="fas fa-camera" style="font-size:48px; color:#4CAF50; margin-bottom:20px;"></i>
+            <i class="bi bi-camera" style="font-size:48px; color:#4CAF50; margin-bottom:20px;"></i>
             <h3 style="margin:0 0 10px 0; color:white;">Scanner QR Code</h3>
             <p style="color:#aaa; margin-bottom:30px;">Positionnez le QR code dans le cadre</p>
             <button id="startScanBtn" class="btn btn-primary" style="padding:15px 40px;">
-                <i class="fas fa-play"></i> Démarrer
+                <i class="bi bi-play-fill"></i> Démarrer
             </button>
         </div>
     `;
@@ -435,12 +435,12 @@ QRScanner.handleConnectionQR = function(connectionData) {
     notif.className = 'notification connection';
     notif.innerHTML = `
         <div class="notification-header">
-            <i class="fas fa-link"></i>
+            <i class="bi bi-link"></i>
             <h4>QR de connexion détecté</h4>
         </div>
         <p>Code secret : <span class="code-masked">${masked}</span></p>
         <button id="useCodeBtn" class="btn btn-primary btn-sm">
-            <i class="fas fa-check"></i> Utiliser ce code
+            <i class="bi bi-check"></i> Utiliser ce code
         </button>
         <button id="ignoreBtn" class="btn btn-secondary btn-sm" style="margin-left:0.5rem;">
             Ignorer
@@ -453,7 +453,7 @@ QRScanner.handleConnectionQR = function(connectionData) {
     const ignoreBtn = notif.querySelector('#ignoreBtn');
 
     useBtn.addEventListener('click', async () => {
-        useBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enregistrement...';
+        useBtn.innerHTML = '<i class="bi bi-arrow-repeat"></i> Enregistrement...';
         useBtn.disabled = true;
         ignoreBtn.disabled = true;
         try {
@@ -464,7 +464,7 @@ QRScanner.handleConnectionQR = function(connectionData) {
             }
             notif.remove();
         } catch (error) {
-            useBtn.innerHTML = '<i class="fas fa-check"></i> Utiliser ce code';
+            useBtn.innerHTML = '<i class="bi bi-check"></i> Utiliser ce code';
             useBtn.disabled = false;
             ignoreBtn.disabled = false;
             QRScanner.app?.showNotification('Erreur', 'Échec de l\'enregistrement', 'error');
@@ -624,22 +624,22 @@ QRScanner.createValidResultHTML = function(scanRecord) {
     return `
         <div class="scan-result-card">
             <div class="scan-result-header valid">
-                <i class="fas fa-check-circle"></i>
+                <i class="bi bi-check-circle"></i>
                 <h3>QR CODE VALIDE</h3>
             </div>
             <div class="security-banner">
-                <i class="fas fa-shield-alt"></i>
+                <i class="bi bi-shield"></i>
                 <span style="color:#10b981;">${scanRecord.securityCheck?.message || 'Authentique'}</span>
             </div>
-            <div class="result-field"><label><i class="fas fa-calendar"></i> Événement</label><span>${scanRecord.eventName || '—'}</span></div>
-            <div class="result-field"><label><i class="fas fa-tag"></i> Prix</label><span>${scanRecord.price || 'Gratuit'}</span></div>
-            <div class="result-field"><label><i class="fas fa-map-marker"></i> Lieu</label><span>${scanRecord.location || '—'}</span></div>
-            <div class="result-field"><label><i class="fas fa-id-card"></i> ID</label><span style="font-family:monospace;">${scanRecord.eventId || '—'}</span></div>
-            ${startDate ? `<div class="result-field"><label><i class="fas fa-hourglass-start"></i> Début</label><span>${startDate}</span></div>` : ''}
-            ${endDate ? `<div class="result-field"><label><i class="fas fa-hourglass-end"></i> Fin</label><span>${endDate}</span></div>` : ''}
-            <div class="result-field"><label><i class="fas fa-clock"></i> Scanné le</label><span>${new Date(scanRecord.timestamp).toLocaleString()}</span></div>
+            <div class="result-field"><label><i class="bi bi-calendar"></i> Événement</label><span>${scanRecord.eventName || '—'}</span></div>
+            <div class="result-field"><label><i class="bi bi-tag"></i> Prix</label><span>${scanRecord.price || 'Gratuit'}</span></div>
+            <div class="result-field"><label><i class="bi bi-geo-alt"></i> Lieu</label><span>${scanRecord.location || '—'}</span></div>
+            <div class="result-field"><label><i class="bi bi-card-text"></i> ID</label><span style="font-family:monospace;">${scanRecord.eventId || '—'}</span></div>
+            ${startDate ? `<div class="result-field"><label><i class="bi bi-hourglass-split"></i> Début</label><span>${startDate}</span></div>` : ''}
+            ${endDate ? `<div class="result-field"><label><i class="bi bi-hourglass-bottom"></i> Fin</label><span>${endDate}</span></div>` : ''}
+            <div class="result-field"><label><i class="bi bi-clock"></i> Scanné le</label><span>${new Date(scanRecord.timestamp).toLocaleString()}</span></div>
             <div style="margin-top:1.5rem; text-align:center;">
-                <button id="scanAgainBtn" class="btn btn-primary"><i class="fas fa-camera"></i> Scanner un autre</button>
+                <button id="scanAgainBtn" class="btn btn-primary"><i class="bi bi-camera"></i> Scanner un autre</button>
             </div>
         </div>
     `;
@@ -649,18 +649,18 @@ QRScanner.createInvalidResultHTML = function(scanRecord) {
     return `
         <div class="scan-result-card">
             <div class="scan-result-header invalid">
-                <i class="fas fa-times-circle"></i>
+                <i class="bi bi-x-circle"></i>
                 <h3>QR CODE INVALIDE</h3>
             </div>
             <div style="background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.3); border-radius:var(--radius-md); padding:1rem; margin-bottom:1.5rem; text-align:center;">
-                <i class="fas fa-times-circle" style="color:#ef4444; font-size:2rem; margin-bottom:0.5rem;"></i>
+                <i class="bi bi-x-circle" style="color:#ef4444; font-size:2rem; margin-bottom:0.5rem;"></i>
                 <h4 style="color:#ef4444;">${scanRecord.securityCheck?.message || 'Fraude détectée'}</h4>
             </div>
-            <div class="result-field"><label><i class="fas fa-calendar"></i> Événement</label><span>${scanRecord.eventName || '—'}</span></div>
-            ${scanRecord.location ? `<div class="result-field"><label><i class="fas fa-map-marker"></i> Lieu</label><span>${scanRecord.location}</span></div>` : ''}
-            <div class="result-field"><label><i class="fas fa-shield-alt"></i> Code reçu</label><span style="font-family:monospace;">${scanRecord.securityCode || 'Aucun'}</span></div>
+            <div class="result-field"><label><i class="bi bi-calendar"></i> Événement</label><span>${scanRecord.eventName || '—'}</span></div>
+            ${scanRecord.location ? `<div class="result-field"><label><i class="bi bi-geo-alt"></i> Lieu</label><span>${scanRecord.location}</span></div>` : ''}
+            <div class="result-field"><label><i class="bi bi-shield"></i> Code reçu</label><span style="font-family:monospace;">${scanRecord.securityCode || 'Aucun'}</span></div>
             <div style="margin-top:1.5rem; text-align:center;">
-                <button id="scanAgainBtn" class="btn btn-primary"><i class="fas fa-camera"></i> Scanner un autre</button>
+                <button id="scanAgainBtn" class="btn btn-primary"><i class="bi bi-camera"></i> Scanner un autre</button>
             </div>
         </div>
     `;
@@ -670,17 +670,17 @@ QRScanner.createExpiredResultHTML = function(scanRecord) {
     return `
         <div class="scan-result-card">
             <div class="scan-result-header invalid">
-                <i class="fas fa-hourglass-end"></i>
+                <i class="bi bi-hourglass-bottom"></i>
                 <h3>QR CODE EXPIRÉ</h3>
             </div>
             <div style="background:rgba(245,158,11,0.1); border:1px solid rgba(245,158,11,0.3); border-radius:var(--radius-md); padding:1rem; margin-bottom:1.5rem; text-align:center;">
-                <i class="fas fa-hourglass-end" style="color:#f59e0b; font-size:2rem; margin-bottom:0.5rem;"></i>
+                <i class="bi bi-hourglass-bottom" style="color:#f59e0b; font-size:2rem; margin-bottom:0.5rem;"></i>
                 <h4 style="color:#f59e0b;">Ce QR code a dépassé sa date de validité</h4>
             </div>
-            <div class="result-field"><label><i class="fas fa-calendar"></i> Événement</label><span>${scanRecord.eventName || '—'}</span></div>
-            ${scanRecord.validityEnd ? `<div class="result-field"><label><i class="fas fa-hourglass-end"></i> Expirait le</label><span>${new Date(scanRecord.validityEnd).toLocaleString()}</span></div>` : ''}
+            <div class="result-field"><label><i class="bi bi-calendar"></i> Événement</label><span>${scanRecord.eventName || '—'}</span></div>
+            ${scanRecord.validityEnd ? `<div class="result-field"><label><i class="bi bi-hourglass-bottom"></i> Expirait le</label><span>${new Date(scanRecord.validityEnd).toLocaleString()}</span></div>` : ''}
             <div style="margin-top:1.5rem; text-align:center;">
-                <button id="scanAgainBtn" class="btn btn-primary"><i class="fas fa-camera"></i> Scanner un autre</button>
+                <button id="scanAgainBtn" class="btn btn-primary"><i class="bi bi-camera"></i> Scanner un autre</button>
             </div>
         </div>
     `;
@@ -690,17 +690,17 @@ QRScanner.createNotYetValidResultHTML = function(scanRecord) {
     return `
         <div class="scan-result-card">
             <div class="scan-result-header invalid">
-                <i class="fas fa-hourglass-start"></i>
+                <i class="bi bi-hourglass-split"></i>
                 <h3>QR CODE PAS ENCORE VALIDE</h3>
             </div>
             <div style="background:rgba(59,130,246,0.1); border:1px solid rgba(59,130,246,0.3); border-radius:var(--radius-md); padding:1rem; margin-bottom:1.5rem; text-align:center;">
-                <i class="fas fa-hourglass-start" style="color:#3b82f6; font-size:2rem; margin-bottom:0.5rem;"></i>
+                <i class="bi bi-hourglass-split" style="color:#3b82f6; font-size:2rem; margin-bottom:0.5rem;"></i>
                 <h4 style="color:#3b82f6;">Ce QR code n'est pas encore valide</h4>
             </div>
-            <div class="result-field"><label><i class="fas fa-calendar"></i> Événement</label><span>${scanRecord.eventName || '—'}</span></div>
-            ${scanRecord.validityStart ? `<div class="result-field"><label><i class="fas fa-hourglass-start"></i> Devient valide le</label><span>${new Date(scanRecord.validityStart).toLocaleString()}</span></div>` : ''}
+            <div class="result-field"><label><i class="bi bi-calendar"></i> Événement</label><span>${scanRecord.eventName || '—'}</span></div>
+            ${scanRecord.validityStart ? `<div class="result-field"><label><i class="bi bi-hourglass-split"></i> Devient valide le</label><span>${new Date(scanRecord.validityStart).toLocaleString()}</span></div>` : ''}
             <div style="margin-top:1.5rem; text-align:center;">
-                <button id="scanAgainBtn" class="btn btn-primary"><i class="fas fa-camera"></i> Scanner un autre</button>
+                <button id="scanAgainBtn" class="btn btn-primary"><i class="bi bi-camera"></i> Scanner un autre</button>
             </div>
         </div>
     `;
@@ -710,17 +710,17 @@ QRScanner.createDuplicateResultHTML = function(scanRecord) {
     return `
         <div class="scan-result-card">
             <div class="scan-result-header duplicate">
-                <i class="fas fa-exclamation-triangle"></i>
+                <i class="bi bi-exclamation-triangle"></i>
                 <h3>DOUBLON DÉTECTÉ</h3>
             </div>
             <div style="background:rgba(245,158,11,0.1); border:1px solid rgba(245,158,11,0.3); border-radius:var(--radius-md); padding:1.5rem; margin-bottom:1.5rem; text-align:center;">
-                <i class="fas fa-copy" style="color:#f59e0b; font-size:2rem; margin-bottom:0.5rem;"></i>
+                <i class="bi bi-files" style="color:#f59e0b; font-size:2rem; margin-bottom:0.5rem;"></i>
                 <h4 style="color:#f59e0b;">Ce QR code a déjà été scanné</h4>
             </div>
-            <div class="result-field"><label><i class="fas fa-calendar"></i> Événement</label><span>${scanRecord.eventName || '—'}</span></div>
-            ${scanRecord.validityEnd ? `<div class="result-field"><label><i class="fas fa-hourglass-end"></i> Expire le</label><span>${new Date(scanRecord.validityEnd).toLocaleString()}</span></div>` : ''}
+            <div class="result-field"><label><i class="bi bi-calendar"></i> Événement</label><span>${scanRecord.eventName || '—'}</span></div>
+            ${scanRecord.validityEnd ? `<div class="result-field"><label><i class="bi bi-hourglass-bottom"></i> Expire le</label><span>${new Date(scanRecord.validityEnd).toLocaleString()}</span></div>` : ''}
             <div style="margin-top:1.5rem; text-align:center;">
-                <button id="scanAgainBtn" class="btn btn-primary"><i class="fas fa-camera"></i> Scanner un autre</button>
+                <button id="scanAgainBtn" class="btn btn-primary"><i class="bi bi-camera"></i> Scanner un autre</button>
             </div>
         </div>
     `;
@@ -731,11 +731,11 @@ QRScanner.showCameraError = function(message) {
     const placeholder = document.getElementById('scannerPlaceholder');
     if (placeholder) {
         placeholder.innerHTML = `
-            <i class="fas fa-exclamation-triangle" style="color:#ef4444;"></i>
+            <i class="bi bi-exclamation-triangle" style="color:#ef4444;"></i>
             <h3 style="color:#ef4444;">Erreur caméra</h3>
             <p style="color:#aaa;">${message}</p>
             <button id="retryBtn" class="btn btn-primary" style="margin-top:1.5rem;">
-                <i class="fas fa-redo"></i> Réessayer
+                <i class="bi bi-arrow-repeat"></i> Réessayer
             </button>
         `;
         const retryBtn = document.getElementById('retryBtn');
