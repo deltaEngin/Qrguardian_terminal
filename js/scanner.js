@@ -381,6 +381,23 @@ QRScanner.updateZoomDisplay = function() {
     if (zoomSpan) zoomSpan.textContent = QRScanner.currentZoom.toFixed(1) + 'x';
 };
 
+// ===== OBTENIR L'ADRESSE IP PUBLIQUE =====
+QRScanner.getClientIP = async function() {
+    try {
+        const response = await fetch('https://api.ipify.org?format=json');
+        const data = await response.json();
+        return data.ip;
+    } catch (error) {
+        console.warn('Impossible de récupérer l\'IP publique:', error);
+        return null;
+    }
+};
+
+// ===== OBTENIR LE USER AGENT =====
+QRScanner.getUserAgent = function() {
+    return navigator.userAgent || '';
+};
+
 // ===== TRAITEMENT DES CODES =====
 QRScanner.processScannedCode = async function(data) {
     QRScanner.stop();
@@ -572,6 +589,10 @@ QRScanner.processNormalQR = async function(data) {
         }
     }
 
+    // Récupération des infos client (IP et User-Agent)
+    const ipAddress = await QRScanner.getClientIP();
+    const userAgent = QRScanner.getUserAgent();
+
     const scanRecord = {
         eventName, price, location,
         valid: isValid,
@@ -585,7 +606,9 @@ QRScanner.processNormalQR = async function(data) {
         validityStart: startTimestamp,
         validityEnd: endTimestamp,
         timestamp: new Date().toISOString(),
-        qrType: qrType
+        qrType: qrType,
+        ip_address: ipAddress,      // Nouveau champ
+        user_agent: userAgent       // Nouveau champ
     };
 
     await Database.saveScan(scanRecord);
