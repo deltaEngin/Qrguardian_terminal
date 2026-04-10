@@ -932,7 +932,6 @@
     </style>
 </head>
 <body class="light-theme">  <!-- Passage au thème clair -->
-    <!-- Contenu identique, inchangé -->
     <div class="app-container">
         <header class="app-header">
             <div class="header-content">
@@ -948,10 +947,13 @@
                     <div class="connection-indicator" id="connectionIndicator" title="Connexion">
                         <span id="connectionStatusText">En ligne</span>
                     </div>
+                    <!-- Bouton de changement de thème (clair/sombre) -->
+                    <button id="themeToggle" class="theme-toggle" aria-label="Changer de thème">
+                        <i class="bi bi-moon-fill"></i>
+                    </button>
                     <button id="refreshBtn" class="refresh-btn" aria-label="Rafraîchir">
                         <i class="bi bi-arrow-repeat"></i>
                     </button>
-                    <!-- Bouton thème blanc supprimé -->
                 </div>
             </div>
         </header>
@@ -1228,7 +1230,7 @@
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('sw.js')
+                navigator.serviceWorker.register('service-worker.js')
                     .then(reg => console.log('Service Worker enregistré (scope:', reg.scope, ')'))
                     .catch(err => console.error('Erreur Service Worker:', err));
             });
